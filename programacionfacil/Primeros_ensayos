@@ -1,0 +1,4 @@
+# Valores de variables para el bot
+precio_de_entrada_long = float(input("Ingrese precio de entrada LONG:\n"))
+precio_de_entrada_short = float(input("Ingrese precio de entrada SHORT:\n"))
+porcentaje_de_recompras = float(input("Ingrese porcentaje de recompras:\n"))
