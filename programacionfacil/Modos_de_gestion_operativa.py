@@ -171,6 +171,7 @@ def cal_snow_ball(datos_calculados):
     precios_stop_loss_short = []
     precio_sl_long = round((precio_long - datos_calculados["monto_de_sl"] / datos_calculados["cantidad_monedas_long"]), datos_calculados["cantidad_decimales_precio"])
     precio_sl_short = round((precio_short + datos_calculados["monto_de_sl"] / datos_calculados["cantidad_monedas_long"]), datos_calculados["cantidad_decimales_precio"])
+    decimales_mon = datos_calculados["cantidad_decimales_monedas"]
 
     # Condicional para corregir el valor de "cero 0" en la cantidad de reentradas
     if datos_calculados["cantidad_de_reentradas"] <= 2:
@@ -216,11 +217,13 @@ def cal_snow_ball(datos_calculados):
     return list_reent_long, list_reent_short, vol_monedas, vol_acum, precios_prom_long, precios_prom_short, precios_stop_loss_long, precios_stop_loss_short
 
 # Calculos de gestion 2:1 Long y Short
+"""
 def cal_2a1(datos_calculados):
     modo_gest = 
     
     
     pass
+    """
 
 # COMPROBACIÓN DEL MODULO
 # Diccionario de ensayo para comprobación sin la función entrada_de_datos
@@ -249,7 +252,7 @@ if datos_a_calc["gestion_seleccionada"] == "DOBLE TAP":
     print("\nDATOS DE GESTION DOBLE TAP:\n")
     lista_reentradas_short, lista_vol_mon_short, vol_mon_total_short, lista_prom_short, lista_stoploss_short, mensaje, volum_usdt_total = cal_unidereccional_short(datos_a_calc)
     print(f"""\nDATOS DE GESTION SHORT:\n
-        Las reentradas son: {lista_reentradas_short}
+        Las entradas son: {lista_reentradas_short}
         Los volumenes son:{lista_vol_mon_short}
         El volumen acumulado es: {vol_mon_total_short} Monedas => {volum_usdt_total} USDT
         Los ptos promedios son: {lista_prom_short}
@@ -258,7 +261,7 @@ if datos_a_calc["gestion_seleccionada"] == "DOBLE TAP":
     # Gestion LONG:
     lista_reentradas_long, lista_vol_mon_long, vol_mon_total_long, lista_prom_long, lista_stoploss_long, mensaje, volum_usdt_total = cal_unidereccional_long(datos_a_calc)
     print(f"""\nDATOS DE GESTION LONG:\n
-        Las reentradas son: {lista_reentradas_long}
+        Las entradas son: {lista_reentradas_long}
         Los volumenes son:{lista_vol_mon_long}
         El volumen acumulado es: {vol_mon_total_long} Monedas => {volum_usdt_total} USDT
         Los ptos promedios son: {lista_prom_long}
@@ -269,7 +272,7 @@ elif datos_a_calc["gestion_seleccionada"] == "UNIDIRECCIONAL LONG":
     #pass
     lista_reentradas_long, lista_vol_mon_long, vol_mon_total_long, lista_prom_long, lista_stoploss_long, mensaje, volum_usdt_total = cal_unidereccional_long(datos_a_calc)
     print(f"""\nDATOS DE GESTION UNIDIRECCIONAL LONG:
-        Las reentradas son: {lista_reentradas_long}
+        Las entradas son: {lista_reentradas_long}
         Los volumenes son:{lista_vol_mon_long}
         El volumen acumulado es: {vol_mon_total_long} Monedas => {volum_usdt_total} USDT
         Los ptos promedios son: {lista_prom_long}
@@ -280,7 +283,7 @@ elif datos_a_calc["gestion_seleccionada"] == "UNIDIRECCIONAL SHORT":
     #pass
     lista_reentradas_short, lista_vol_mon_short, vol_mon_total_short, lista_prom_short, lista_stoploss_short, mensaje, volum_usdt_total = cal_unidereccional_short(datos_a_calc)
     print(f"""\nDATOS DE GESTION UNIDIRECCIONAL SHORT:
-        Las reentradas son: {lista_reentradas_short}
+        Las entradas son: {lista_reentradas_short}
         Los volumenes son:{lista_vol_mon_short}
         El volumen acumulado es: {vol_mon_total_short} Monedas => {volum_usdt_total} USDT
         Los ptos promedios son: {lista_prom_short}

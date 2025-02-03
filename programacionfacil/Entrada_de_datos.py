@@ -154,7 +154,22 @@ def entrada_de_datos():
             entrada_short = validar_numero()
         print("\nPorcentaje de distancia de reentradas")
         porcentaje_dist_reentradas = validar_numero()
-
+        ""
+        if gestion_seleccionada == "2:1 LONG":
+            print("\nPrecio de Stop Loss")
+            entrada_stoploss = validar_numero()
+            cantidad_de_entradas = "N/A"
+            cantidad_monedas_short = "N/A"
+            cantidad_usdt_short = "N/A"
+        elif gestion_seleccionada == "2:1 SHORT":
+            print("\nPrecio de Stop Loss")
+            entrada_stoploss = validar_numero()
+            cantidad_de_entradas = "N/A"
+            cantidad_monedas_long = "N/A"
+            cantidad_usdt_long = "N/A"
+        else:
+                  
+            ""
         # VALORES PARA LA GESTION DEL VOLUMEN DE MONEDAS
         print("\nCantidad de USDT ó MONEDAS para entrada inicial")
         cantidad_monedas1 = validar_numero_str()
@@ -196,7 +211,7 @@ def entrada_de_datos():
         monto_de_sl = float(monto_de_sl)
         # cantidad de entradas
         print("\nCantidad de entradas")
-        cantidad_de_reentradas = validar_numero_entero()
+        cantidad_de_entradas = validar_numero_entero()
 
         # CALCULOS INICIALES BASICOS PARA LA ENTRADA DE DATOS #
         # Cantidad de decimales del precio
@@ -276,7 +291,7 @@ def entrada_de_datos():
         Modo gestión de volumen: {modo_seleccionado}
         Porcentaje de volumen para gestión de reentradas: {porcentaje_vol_reentrada}%\n
         Monto de STOP LOSS ó COBERTURA: {monto_de_sl} USDT
-        Cantidad de entradas: {cantidad_de_reentradas}\n"""
+        Cantidad de entradas: {cantidad_de_entradas}\n"""
         )
 
         # Dicionario para almacenar los datos calculados
@@ -290,7 +305,7 @@ def entrada_de_datos():
             "modo_seleccionado": modo_seleccionado,
             "porcentaje_vol_reentrada": porcentaje_vol_reentrada,
             "monto_de_sl": monto_de_sl,
-            "cantidad_de_reentradas": cantidad_de_reentradas,
+            "cantidad_de_reentradas": cantidad_de_entradas,
             "cantidad_decimales_monedas": cantidad_decimales_monedas,
             "cantidad_decimales_precio": cantidad_decimales_precio,
             "cant_decimales_sl": cant_decimales_sl,
@@ -305,6 +320,6 @@ def entrada_de_datos():
 
 # COMPROBACIÓN DEL MODULO
 # exchange_y_moneda = seleccion_de_exchange()
-datos_de_entrada = entrada_de_datos()
+# datos_de_entrada = entrada_de_datos()
 # print(f"EL exchange y la moneda seleccionada son:\n{exchange_y_moneda}")
 # print(f"Lista de datos ingresados:\n{datos_de_entrada}")
