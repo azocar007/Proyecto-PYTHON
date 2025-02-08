@@ -146,29 +146,60 @@ def entrada_de_datos():
             )
             gestion_seleccionada = opciones_de_gestion.get(seleccion_de_gestion, 0)
 
-        # VALORES PARA LAS ENTRADAS
-        if (
-            gestion_seleccionada == "UNIDIRECCIONAL SHORT"
-            or gestion_seleccionada == "2:1 SHORT"
-        ):
-            entrada_long = "N/A"
-            print("\nPrecio de entrada SHORT")
-            entrada_short = validar_numero()
-        elif (
-            gestion_seleccionada == "UNIDIRECCIONAL LONG"
-            or gestion_seleccionada == "2:1 LONG"
-        ):
-            print("\nPrecio de entrada LONG")
-            entrada_long = validar_numero()
-            entrada_short = "N/A"
-        else:
-            print("\nPrecio de entrada LONG")
-            entrada_long = validar_numero()
-            print("\nPrecio de entrada SHORT")
-            entrada_short = validar_numero()
+        # SELECCIÓN DE TIPO DE ENTRADA
+        opciones_de_entrada = {
+            "1": "MERCADO",
+            "2": "BBO",
+            "3": "LIMITE"
+        }
+        seleccion_de_entrada = input(
+            """\nSeleccione con un numero del 1 al 3 el Modo de gestión de la operación\n
+            1: MERCADO
+            2: BBO
+            3: LIMITE
+            Ingrese numero de selección: """
+        )
+        gestion_de_entrada = opciones_de_entrada.get(seleccion_de_entrada, 0)
+        while seleccion_de_entrada not in opciones_de_entrada:
+            seleccion_de_entrada = input(
+                """\nOpción equivocada, por favor seleccione nuevamante:\n
+            1: MERCADO
+            2: BBO
+            3: LIMITE
+            Ingrese numero de selección: """
+            )
+            gestion_de_entrada = opciones_de_entrada.get(seleccion_de_entrada, 0)
 
-        # VALORES PARA LA GESTION DE REENTRADAS 2:1 LONG Y 2:1 SHORT
-        if gestion_seleccionada == "2:1 LONG":
+        # VALORES PARA LAS ENTRADAS
+        if gestion_de_entrada == "MERCADO":
+            entrada_long = "MARKET"
+            entrada_short = "MARKET"
+        elif gestion_de_entrada == "BBO":
+            entrada_long = "BBO"
+            entrada_short = "BBO"
+        else: # gestion_de_entrada == "LIMITE":
+            if (
+                gestion_seleccionada == "UNIDIRECCIONAL SHORT"
+                or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"
+            ):
+                entrada_long = "N/A"
+                print("\nPrecio de entrada SHORT")
+                entrada_short = validar_numero()
+            elif (
+                gestion_seleccionada == "UNIDIRECCIONAL LONG"
+                or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG"
+            ):
+                print("\nPrecio de entrada LONG")
+                entrada_long = validar_numero()
+                entrada_short = "N/A"
+            else:
+                print("\nPrecio de entrada LONG")
+                entrada_long = validar_numero()
+                print("\nPrecio de entrada SHORT")
+                entrada_short = validar_numero()
+
+        # VALORES PARA LA GESTION DE REENTRADAS RATIO BENEFICIO/PERDIDA LONG y SHORT
+        if gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG":
             print("\nPrecio de Stop Loss")
             entrada_stoploss = validar_numero()
             # Validar que el precio de stop loss sea menor al precio de entrada
@@ -176,7 +207,7 @@ def entrada_de_datos():
                 print("\nEl precio de Stop Loss debe ser menor al precio de entrada LONG")
                 entrada_stoploss = validar_numero()
 
-        elif gestion_seleccionada == "2:1 SHORT":
+        elif gestion_seleccionada == "RAIO BENEFICIO/PERDIDA SHORT":
             print("\nPrecio de Stop Loss")
             entrada_stoploss = validar_numero()
             # Validar que el precio de stop loss sea mayor al precio de entrada
@@ -266,10 +297,9 @@ def entrada_de_datos():
         )
 
         # SELECCIÓN DE USDT Ó MONEDAS - CALCULO DE CANTIDAD DE DECIMALES DE MONEDA - CANTIDAD DE MONEDAS
-        if (gestion_seleccionada == "2:1 LONG" or gestion_seleccionada == "2:1 SHORT"):
-            cantidad_monedas1 = monto_de_sl
+        if (gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"):
             modo_seleccion_volumen = "USDT"
-            # Variables que no aplican en la gestion 2:1
+            # Variables que no aplican en la gestion ratio beneficio/perdida
             cantidad_de_entradas = "N/A"
             cantidad_monedas_short = "N/A"
             cantidad_usdt_short = "N/A"
@@ -277,11 +307,12 @@ def entrada_de_datos():
             porcentaje_dist_reentradas = "N/A"
             modo_seleccionado="N/A"
             porcentaje_vol_reentrada = "N/A"
+            #cantidad_monedas1 = monto_de_sl"
 
         cantidad_decimales_monedas = contar_decimales(cantidad_monedas1)
         cantidad_monedas1 = abs(float(cantidad_monedas1))
         if modo_seleccion_volumen == "USDT":
-            if (gestion_seleccionada == "UNIDIRECCIONAL SHORT" or gestion_seleccionada == "2:1 SHORT"):
+            if (gestion_seleccionada == "UNIDIRECCIONAL SHORT" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"):
                 cantidad_monedas_short = round(
                     float(cantidad_monedas1) / entrada_short, cantidad_decimales_monedas
                 )
@@ -289,7 +320,7 @@ def entrada_de_datos():
                 cantidad_usdt_short = round(cantidad_monedas_short * entrada_short, 2)
                 cantidad_usdt_long = "N/A"
                 cantidad_monedas_long = "N/A"
-            elif (gestion_seleccionada == "UNIDIRECCIONAL LONG" or gestion_seleccionada == "2:1 LONG"):
+            elif (gestion_seleccionada == "UNIDIRECCIONAL LONG" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG"):
                 cantidad_monedas_long = round(
                     float(cantidad_monedas1) / entrada_long, cantidad_decimales_monedas
                 )
@@ -321,11 +352,12 @@ def entrada_de_datos():
                 cantidad_usdt_short = round(float(cantidad_monedas) * entrada_short, 2)
 
         # ENVIA A PANTALLA LOS DATOS INGRESADOS
-        if (gestion_seleccionada == "2:1 LONG" or gestion_seleccionada == "2:1 SHORT"):
-            # Gestion 2:1
+        if (gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"):
+            # Gestion RATIO BENEFICIO/PERDIDA LONG y SHORT
             print(
                 f"""\nLOS DATOS INGRESADOS SON LOS SIGUIENTES:\n\n
             Tipo de gestión: {gestion_seleccionada}
+            Tipo de entrada: {gestion_de_entrada}
             Precio de entrada LONG: {entrada_long}
             Precio de entrada SHORT: {entrada_short}
             Volumen de entrada inicial:
@@ -338,6 +370,7 @@ def entrada_de_datos():
             print(
                 f"""\nLOS DATOS INGRESADOS SON LOS SIGUIENTES:\n\n
             Tipo de gestión: {gestion_seleccionada}
+            Tipo de entrada: {gestion_de_entrada}
             Precio de entrada LONG: {entrada_long}
             Precio de entrada SHORT: {entrada_short}
             Porcentaje de distancia de reentradas: {porcentaje_dist_reentradas}%\n
@@ -353,6 +386,7 @@ def entrada_de_datos():
         # Dicionario para almacenar los datos calculados
         datos_calculados = {
             "gestion_seleccionada": gestion_seleccionada,
+            "gestion_de_entrada": gestion_de_entrada,
             "entrada_long": entrada_long,
             "entrada_short": entrada_short,
             "porcentaje_dist_reentradas": porcentaje_dist_reentradas,
