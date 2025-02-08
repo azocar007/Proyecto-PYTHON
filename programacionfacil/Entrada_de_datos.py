@@ -207,7 +207,7 @@ def entrada_de_datos():
                 print("\nEl precio de Stop Loss debe ser menor al precio de entrada LONG")
                 entrada_stoploss = validar_numero()
 
-        elif gestion_seleccionada == "RAIO BENEFICIO/PERDIDA SHORT":
+        elif gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT":
             print("\nPrecio de Stop Loss")
             entrada_stoploss = validar_numero()
             # Validar que el precio de stop loss sea mayor al precio de entrada
@@ -221,6 +221,9 @@ def entrada_de_datos():
 
             print("\nCantidad de USDT ó MONEDAS para entrada inicial")
             cantidad_monedas1 = validar_numero_str()
+            cantidad_decimales_monedas = contar_decimales(cantidad_monedas1)
+            cantidad_monedas1 = abs(float(cantidad_monedas1))
+            
             opcion_de_volumen = {
                 "1": "USDT",
                 "2": "MONEDAS"}
@@ -292,9 +295,7 @@ def entrada_de_datos():
             entrada_long = round(float(entrada_long), cantidad_decimales_precio)
             entrada_short = round(float(entrada_short), cantidad_decimales_precio)
         # Valor de un pip
-        valor_pips = round(
-            10 ** (cantidad_decimales_precio * -1), cantidad_decimales_precio
-        )
+        valor_pips = round(10 ** (cantidad_decimales_precio * -1), cantidad_decimales_precio)
 
         # SELECCIÓN DE USDT Ó MONEDAS - CALCULO DE CANTIDAD DE DECIMALES DE MONEDA - CANTIDAD DE MONEDAS
         if (gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"):
@@ -307,14 +308,12 @@ def entrada_de_datos():
             porcentaje_dist_reentradas = "N/A"
             modo_seleccionado="N/A"
             porcentaje_vol_reentrada = "N/A"
-            #cantidad_monedas1 = monto_de_sl"
+            cantidad_decimales_monedas = cant_decimales_sl
 
-        cantidad_decimales_monedas = contar_decimales(cantidad_monedas1)
-        cantidad_monedas1 = abs(float(cantidad_monedas1))
         if modo_seleccion_volumen == "USDT":
             if (gestion_seleccionada == "UNIDIRECCIONAL SHORT" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"):
                 cantidad_monedas_short = round(
-                    float(cantidad_monedas1) / entrada_short, cantidad_decimales_monedas
+                    float(monto_de_sl) / entrada_short, cant_decimales_sl
                 )
                 cantidad_monedas = cantidad_monedas_short
                 cantidad_usdt_short = round(cantidad_monedas_short * entrada_short, 2)
@@ -322,7 +321,7 @@ def entrada_de_datos():
                 cantidad_monedas_long = "N/A"
             elif (gestion_seleccionada == "UNIDIRECCIONAL LONG" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG"):
                 cantidad_monedas_long = round(
-                    float(cantidad_monedas1) / entrada_long, cantidad_decimales_monedas
+                    float(monto_de_sl) / entrada_long, cant_decimales_sl
                 )
                 cantidad_monedas = cantidad_monedas_long
                 cantidad_usdt_long = round(cantidad_monedas_long * entrada_long, 2)
@@ -358,11 +357,14 @@ def entrada_de_datos():
                 f"""\nLOS DATOS INGRESADOS SON LOS SIGUIENTES:\n\n
             Tipo de gestión: {gestion_seleccionada}
             Tipo de entrada: {gestion_de_entrada}
+            
             Precio de entrada LONG: {entrada_long}
             Precio de entrada SHORT: {entrada_short}
+            
             Volumen de entrada inicial:
             LONG: {cantidad_monedas_long} MONEDAS => {cantidad_usdt_long} USDT
             SHORT: {cantidad_monedas_short} MONEDAS => {cantidad_usdt_short} USDT
+            
             Monto de STOP LOSS ó COBERTURA: {monto_de_sl} USDT
             Precion de Stop Loss: {entrada_stoploss}\n"""
             )
@@ -371,12 +373,15 @@ def entrada_de_datos():
                 f"""\nLOS DATOS INGRESADOS SON LOS SIGUIENTES:\n\n
             Tipo de gestión: {gestion_seleccionada}
             Tipo de entrada: {gestion_de_entrada}
+            
             Precio de entrada LONG: {entrada_long}
             Precio de entrada SHORT: {entrada_short}
             Porcentaje de distancia de reentradas: {porcentaje_dist_reentradas}%\n
+            
             Volumen de entrada inicial:
             LONG: {cantidad_monedas_long} MONEDAS => {cantidad_usdt_long} USDT
             SHORT: {cantidad_monedas_short} MONEDAS => {cantidad_usdt_short} USDT
+            
             Modo gestión de volumen: {modo_seleccionado}
             Porcentaje de volumen para gestión de reentradas: {porcentaje_vol_reentrada}%\n
             Monto de STOP LOSS ó COBERTURA: {monto_de_sl} USDT
