@@ -200,11 +200,12 @@ def entrada_de_datos():
                 entrada_short = validar_numero()
 
         # VALORES PARA LA GESTION DE REENTRADAS RATIO BENEFICIO/PERDIDA LONG y SHORT
+
         if gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG":
             print("\nPrecio de Stop Loss, debe ser menor al precio de entrada LONG")
             entrada_stoploss = validar_numero()
             # Validar que el precio de stop loss sea menor al precio de entrada
-            while entrada_stoploss >= entrada_long:
+            while gestion_de_entrada == "LIMITE" and entrada_stoploss >= entrada_long:
                 print("\nValor incorrecto, el precio de Stop Loss debe ser menor al precio de entrada LONG")
                 entrada_stoploss = validar_numero()
 
@@ -212,7 +213,7 @@ def entrada_de_datos():
             print("\nPrecio de Stop Loss, debe ser mayor al precio de entrada SHORT")
             entrada_stoploss = validar_numero()
             # Validar que el precio de stop loss sea mayor al precio de entrada
-            while entrada_stoploss <= entrada_short:
+            while gestion_de_entrada == "LIMITE" and entrada_stoploss <= entrada_short:
                 print("\nValor incorrecto, el precio de Stop Loss debe ser mayor al precio de entrada SHORT")
                 entrada_stoploss = validar_numero()
 
@@ -289,13 +290,14 @@ def entrada_de_datos():
         list_cant_dec_precio = [cant_decimales_long, cant_decimales_short, cant_decimales_sl]
         cantidad_decimales_precio = max(list_cant_dec_precio)
 
-        if entrada_long == "N/A":
-            entrada_short = round(float(entrada_short), cantidad_decimales_precio)
-        elif entrada_short == "N/A":
-            entrada_long = round(float(entrada_long), cantidad_decimales_precio)
-        else:
-            entrada_long = round(float(entrada_long), cantidad_decimales_precio)
-            entrada_short = round(float(entrada_short), cantidad_decimales_precio)
+        if seleccion_de_entrada == "LIMITE":
+            if entrada_long == "N/A":
+                entrada_short = round(float(entrada_short), cantidad_decimales_precio)
+            elif entrada_short == "N/A":
+                entrada_long = round(float(entrada_long), cantidad_decimales_precio)
+            else:
+                entrada_long = round(float(entrada_long), cantidad_decimales_precio)
+                entrada_short = round(float(entrada_short), cantidad_decimales_precio)
         # Valor de un pip
         valor_pips = round(10 ** (cantidad_decimales_precio * -1), cantidad_decimales_precio)
 
@@ -315,25 +317,19 @@ def entrada_de_datos():
 
         if modo_seleccion_volumen == "USDT":
             if (gestion_seleccionada == "UNIDIRECCIONAL SHORT" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"):
-                cantidad_monedas_short = round(
-                    float(monto_de_sl) / entrada_short, cant_decimales_sl
-                )
+                cantidad_monedas_short = round(float(monto_de_sl) / entrada_short, cant_decimales_sl)
                 cantidad_monedas = cantidad_monedas_short
                 cantidad_usdt_short = round(cantidad_monedas_short * entrada_short, 2)
                 cantidad_usdt_long = "N/A"
                 cantidad_monedas_long = "N/A"
             elif (gestion_seleccionada == "UNIDIRECCIONAL LONG" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG"):
-                cantidad_monedas_long = round(
-                    float(monto_de_sl) / entrada_long, cant_decimales_sl
-                )
+                cantidad_monedas_long = round(float(monto_de_sl) / entrada_long, cant_decimales_sl)
                 cantidad_monedas = cantidad_monedas_long
                 cantidad_usdt_long = round(cantidad_monedas_long * entrada_long, 2)
                 cantidad_usdt_short = "N/A"
                 cantidad_monedas_short = "N/A"
             else:
-                cantidad_monedas_long = round(
-                    float(cantidad_monedas1) / entrada_long, cantidad_decimales_monedas
-                )
+                cantidad_monedas_long = round(float(cantidad_monedas1) / entrada_long, cantidad_decimales_monedas)
                 cantidad_monedas = cantidad_monedas_short = cantidad_monedas_long
                 cantidad_usdt_long = round(cantidad_monedas_long * entrada_long, 2)
                 cantidad_usdt_short = round(cantidad_monedas_short * entrada_short, 2)
@@ -398,6 +394,8 @@ def entrada_de_datos():
             "entrada_long": entrada_long,
             "entrada_short": entrada_short,
             "porcentaje_dist_reentradas": porcentaje_dist_reentradas,
+            "cantidad_usdt_long" : cantidad_usdt_long,
+            "cantidad_usdt_short" : cantidad_usdt_short,
             "cantidad_monedas_long": cantidad_monedas_long,
             "cantidad_monedas_short": cantidad_monedas_short,
             "modo_seleccionado": modo_seleccionado,
@@ -407,7 +405,6 @@ def entrada_de_datos():
             "cantidad_de_reentradas": cantidad_de_entradas,
             "cantidad_decimales_monedas": cantidad_decimales_monedas,
             "cantidad_decimales_precio": cantidad_decimales_precio,
-            "cant_decimales_sl": cant_decimales_sl,
             "valor_pips": valor_pips}
 
         datoscorrectos = input("\n¿Esta conforme con los datos ingresados?\n(si/no): ").lower()
