@@ -218,16 +218,52 @@ def cal_snow_ball(datos_calculados):
 
 # Calculos de gestion 2:1 Long y Short
 """
-def cal_2a1(datos_calculados):
+def ratio_beneficioperdida(datos_calculados):
     modo_gest = 
     
     
     pass
     """
 
+        """ ESTA SECEUNCIA DE CODIGO DE DEBE EMPLEAR EN LAS FUNCIONES DEL MODULO: modos_de_gestion_operativa.py PARA LA GESTION DE VOLUMEN
+        if modo_seleccion_volumen == "USDT":
+            if (gestion_seleccionada == "UNIDIRECCIONAL SHORT" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"):
+                cantidad_monedas_short = round(float(monto_de_sl) / entrada_short, cant_decimales_sl)
+                cantidad_monedas = cantidad_monedas_short
+                cantidad_usdt_short = round(cantidad_monedas_short * entrada_short, 2)
+                cantidad_usdt_long = "N/A"
+                cantidad_monedas_long = "N/A"
+            elif (gestion_seleccionada == "UNIDIRECCIONAL LONG" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG"):
+                cantidad_monedas_long = round(float(monto_de_sl) / entrada_long, cant_decimales_sl)
+                cantidad_monedas = cantidad_monedas_long
+                cantidad_usdt_long = round(cantidad_monedas_long * entrada_long, 2)
+                cantidad_usdt_short = "N/A"
+                cantidad_monedas_short = "N/A"
+            else:
+                cantidad_monedas_long = round(float(cantidad_monedas1) / entrada_long, cantidad_decimales_monedas)
+                cantidad_monedas = cantidad_monedas_short = cantidad_monedas_long
+                cantidad_usdt_long = round(cantidad_monedas_long * entrada_long, 2)
+                cantidad_usdt_short = round(cantidad_monedas_short * entrada_short, 2)
+        else:  # modo_seleccion_volumen == "MONEDAS":
+            cantidad_monedas = cantidad_monedas_long = cantidad_monedas_short = cantidad_monedas1
+            if gestion_seleccionada == "UNIDIRECCIONAL SHORT":
+                cantidad_usdt_short = round(float(cantidad_monedas) * entrada_short, 2)
+                cantidad_monedas_long = "N/A"
+                cantidad_usdt_long = "N/A"
+            elif gestion_seleccionada == "UNIDIRECCIONAL LONG":
+                cantidad_usdt_long = round(float(cantidad_monedas) * entrada_long, 2)
+                cantidad_monedas_short = "N/A"
+                cantidad_usdt_short = "N/A"
+            else:
+                cantidad_usdt_long = round(float(cantidad_monedas) * entrada_long, 2)
+                cantidad_usdt_short = round(float(cantidad_monedas) * entrada_short, 2)
+            """
+
+
+
 # COMPROBACIÓN DEL MODULO
-# Diccionario de ensayo para comprobación sin la función entrada_de_datos
-"""
+
+""" # Diccionario de ensayo para comprobación sin la función entrada_de_datos
 datos_calculados = {"gestion_seleccionada" : "SNOW BALL" , # UNIDIRECCIONAL SHORT LONG - DOBLE TAP - SNOW BALL
                     "entrada_long" : 0.2589 , 
                     "entrada_short" : 0.2574 , 
@@ -244,6 +280,7 @@ datos_calculados = {"gestion_seleccionada" : "SNOW BALL" , # UNIDIRECCIONAL SHOR
                     "cant_decimales_sl" : 2 , 
                     "valor_pips" : 0.0001}
 #"""
+# Empleando la función entrada_de_datos
 datos_a_calc = entrada_de_datos()
 
 if datos_a_calc["gestion_seleccionada"] == "DOBLE TAP":

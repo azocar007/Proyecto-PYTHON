@@ -170,26 +170,23 @@ def entrada_de_datos():
             gestion_de_entrada = opciones_de_entrada.get(seleccion_de_entrada, 0)
 
         # VALORES PARA LAS ENTRADAS
-        if gestion_de_entrada == "MERCADO":
-            entrada_long = "MARKET"
-            entrada_short = "MARKET"
-            valor_pips = "N/A"
-        elif gestion_de_entrada == "BBO":
-            entrada_long = "BBO"
-            entrada_short = "BBO"
+        if gestion_de_entrada == "MERCADO" or gestion_de_entrada == "BBO":
+            if (gestion_seleccionada == "UNIDIRECCIONAL SHORT" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"):
+                entrada_long = "N/A"
+                entrada_short = gestion_de_entrada
+            elif (gestion_seleccionada == "UNIDIRECCIONAL LONG" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG"):
+                entrada_long = gestion_de_entrada
+                entrada_short = "N/A"
+            else:
+                entrada_long = gestion_de_entrada
+                entrada_short = gestion_de_entrada
             valor_pips = "N/A"
         else: # gestion_de_entrada == "LIMITE":
-            if (
-                gestion_seleccionada == "UNIDIRECCIONAL SHORT"
-                or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"
-            ):
+            if (gestion_seleccionada == "UNIDIRECCIONAL SHORT" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"):
                 entrada_long = "N/A"
                 print("\nPrecio de entrada SHORT")
                 entrada_short = validar_numero()
-            elif (
-                gestion_seleccionada == "UNIDIRECCIONAL LONG"
-                or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG"
-            ):
+            elif (gestion_seleccionada == "UNIDIRECCIONAL LONG" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG"):
                 print("\nPrecio de entrada LONG")
                 entrada_long = validar_numero()
                 entrada_short = "N/A"
@@ -198,6 +195,12 @@ def entrada_de_datos():
                 entrada_long = validar_numero()
                 print("\nPrecio de entrada SHORT")
                 entrada_short = validar_numero()
+
+# Definiciones iniciales del capital de entrada
+        cantidad_usdt_long = "N/A"
+        cantidad_usdt_short = "N/A"
+        cantidad_monedas_long = "N/A"
+        cantidad_monedas_short = "N/A"
 
         # VALORES PARA LA GESTION DE REENTRADAS RATIO BENEFICIO/PERDIDA LONG y SHORT
 
@@ -222,9 +225,9 @@ def entrada_de_datos():
             porcentaje_dist_reentradas = validar_numero()
 
             print("\nCantidad de USDT ó MONEDAS para entrada inicial")
-            cantidad_monedas1 = validar_numero_str()
-            cantidad_decimales_monedas = contar_decimales(cantidad_monedas1)
-            cantidad_monedas1 = abs(float(cantidad_monedas1))
+            capital_de_entrada = validar_numero_str()
+            cantidad_decimales_monedas = contar_decimales(capital_de_entrada)
+            capital_de_entrada = abs(float(capital_de_entrada))
             opcion_de_volumen = {
                 "1": "USDT",
                 "2": "MONEDAS"}
@@ -242,6 +245,24 @@ def entrada_de_datos():
             2: MONEDAS
             Ingrese la opción: """)
                 modo_seleccion_volumen = opcion_de_volumen.get(seleccion_volumen, 0)
+
+            if modo_seleccion_volumen == "USDT":
+                if gestion_seleccionada == "UNIDIRECCIONAL SHORT":
+                    cantidad_usdt_short = capital_de_entrada
+                elif gestion_seleccionada == "UNIDIRECCIONAL LONG":
+                    cantidad_usdt_long = capital_de_entrada
+                elif gestion_seleccionada == "DOBLE TAP" or gestion_seleccionada == "SNOW BALL":
+                    cantidad_usdt_long = capital_de_entrada
+                    cantidad_usdt_short = capital_de_entrada
+
+            else: # modo_seleccion_volumen == "MONEDAS":
+                if gestion_seleccionada == "UNIDIRECCIONAL SHORT":
+                    cantidad_monedas_short = capital_de_entrada
+                elif gestion_seleccionada == "UNIDIRECCIONAL LONG":
+                    cantidad_monedas_long = capital_de_entrada
+                elif gestion_seleccionada == "DOBLE TAP" or gestion_seleccionada == "SNOW BALL":
+                    cantidad_monedas_long = capital_de_entrada
+                    cantidad_monedas_short = capital_de_entrada
 
             # Selección de modo de gestión de volumen (% DE REENTRADAS, MARTINGALA, AGRESIVO)
             opciones_de_modo_volumen = {
@@ -297,8 +318,8 @@ def entrada_de_datos():
             else:
                 entrada_long = round(float(entrada_long), cantidad_decimales_precio)
                 entrada_short = round(float(entrada_short), cantidad_decimales_precio)
-        # Valor de un pip
-        valor_pips = round(10 ** (cantidad_decimales_precio * -1), cantidad_decimales_precio)
+            # Valor de un pip
+            valor_pips = round(10 ** (cantidad_decimales_precio * -1), cantidad_decimales_precio)
 
         # SELECCIÓN DE USDT Ó MONEDAS - CALCULO DE CANTIDAD DE DECIMALES DE MONEDA - CANTIDAD DE MONEDAS
         if (gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"):
@@ -309,70 +330,9 @@ def entrada_de_datos():
             porcentaje_dist_reentradas = "N/A"
             modo_seleccionado="N/A"
             porcentaje_vol_reentrada = "N/A"
-            # Logica para los montos de cantidad de monedas y usdt
-            if gestion_de_entrada == "LIMITE":
-                if modo_seleccion_volumen == "USDT":
-                    cantidad_usdt_long = cantidad_monedas1
-                    cantidad_usdt_short = cantidad_monedas1
-                    cantidad_monedas_long = "N/A"
-                    cantidad_monedas_short = "N/A"
-                else: # modo_seleccion_volumen == "MONEDAS:
-                    cantidad_usdt_long = "N/A"
-                    cantidad_usdt_short = "N/A"
-                    cantidad_monedas_long = cantidad_monedas1
-                    cantidad_monedas_short = cantidad_monedas1
-            else: # gestion_de_entrada == "MERCADO" or gestion_de_entrada == "BBO":
-                cantidad_usdt_long = "N/A"
-                cantidad_usdt_short = "N/A"
-                cantidad_monedas_long = "N/A"
-                cantidad_monedas_short = "N/A"
-        else: # Gestion con recompras
-            if modo_seleccion_volumen == "USDT":
-                cantidad_usdt_long = cantidad_monedas1
-                cantidad_usdt_short = cantidad_monedas1
-                cantidad_monedas_long = "N/A"
-                cantidad_monedas_short = "N/A"
-            else: # modo_seleccion_volumen == "MONEDAS:
-                cantidad_usdt_long = "N/A"
-                cantidad_usdt_short = "N/A"
-                cantidad_monedas_long = cantidad_monedas1
-                cantidad_monedas_short = cantidad_monedas1
-
-        """ ESTA SECEUNCAI DE CODIGO DE DEBE EMPLEAR EN LAS FUNCIONES DEL MODULO: modos_de_gestion_operativa.py
-        if modo_seleccion_volumen == "USDT":
-            if (gestion_seleccionada == "UNIDIRECCIONAL SHORT" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"):
-                cantidad_monedas_short = round(float(monto_de_sl) / entrada_short, cant_decimales_sl)
-                cantidad_monedas = cantidad_monedas_short
-                cantidad_usdt_short = round(cantidad_monedas_short * entrada_short, 2)
-                cantidad_usdt_long = "N/A"
-                cantidad_monedas_long = "N/A"
-            elif (gestion_seleccionada == "UNIDIRECCIONAL LONG" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG"):
-                cantidad_monedas_long = round(float(monto_de_sl) / entrada_long, cant_decimales_sl)
-                cantidad_monedas = cantidad_monedas_long
-                cantidad_usdt_long = round(cantidad_monedas_long * entrada_long, 2)
-                cantidad_usdt_short = "N/A"
-                cantidad_monedas_short = "N/A"
-            else:
-                cantidad_monedas_long = round(float(cantidad_monedas1) / entrada_long, cantidad_decimales_monedas)
-                cantidad_monedas = cantidad_monedas_short = cantidad_monedas_long
-                cantidad_usdt_long = round(cantidad_monedas_long * entrada_long, 2)
-                cantidad_usdt_short = round(cantidad_monedas_short * entrada_short, 2)
-        else:  # modo_seleccion_volumen == "MONEDAS":
-            cantidad_monedas = cantidad_monedas_long = cantidad_monedas_short = cantidad_monedas1
-            if gestion_seleccionada == "UNIDIRECCIONAL SHORT":
-                cantidad_usdt_short = round(float(cantidad_monedas) * entrada_short, 2)
-                cantidad_monedas_long = "N/A"
-                cantidad_usdt_long = "N/A"
-            elif gestion_seleccionada == "UNIDIRECCIONAL LONG":
-                cantidad_usdt_long = round(float(cantidad_monedas) * entrada_long, 2)
-                cantidad_monedas_short = "N/A"
-                cantidad_usdt_short = "N/A"
-            else:
-                cantidad_usdt_long = round(float(cantidad_monedas) * entrada_long, 2)
-                cantidad_usdt_short = round(float(cantidad_monedas) * entrada_short, 2)
-            """
 
         # ENVIA A PANTALLA LOS DATOS INGRESADOS
+
         if (gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"):
             # Gestion RATIO BENEFICIO/PERDIDA LONG y SHORT
             print(
