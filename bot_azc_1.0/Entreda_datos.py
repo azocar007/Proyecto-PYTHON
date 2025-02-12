@@ -1,7 +1,9 @@
 ### ENTRADA DE DATOS ###
 
+# FUNCIONES ANIDADAS PARA LA ENTRADA DE DATOS
+
 # Funciones para aceptar solo numeros int y float
-def validar_numero(mensaje="Ingresa el valor: "):
+def validar_numero(mensaje:str = "Ingresa el valor: "):
     while True:
         user_input = input(mensaje)
         try:
@@ -15,9 +17,8 @@ def validar_numero(mensaje="Ingresa el valor: "):
         except ValueError:
             print("Entrada no válida. Por favor, ingresa un número.")
 
-
 # Función para aceptar solo numeros int
-def validar_numero_entero(mensaje="Ingresa el valor: "):
+def validar_numero_entero(mensaje: str = "Ingresa el valor: "):
     while True:
         user_input = input(mensaje)
         try:
@@ -26,9 +27,8 @@ def validar_numero_entero(mensaje="Ingresa el valor: "):
         except ValueError:
             print("Entrada no válida. Por favor, ingresa un número entero.")
 
-
 # Funcíon para aceptar numeros devolviendo un string
-def validar_numero_str(mensaje="Ingresa el valor: "):
+def validar_numero_str(mensaje: str = "Ingresa el valor: "):
     while True:
         user_input = input(mensaje)
         try:
@@ -37,18 +37,30 @@ def validar_numero_str(mensaje="Ingresa el valor: "):
         except ValueError:
             print("Entrada no válida. Por favor, ingresa un número.")
 
-
 # Función para calcular la cantidad de decimales de una variable
-def contar_decimales(numero):
+def contar_decimales(numero: float):
     numero_str = str(numero)
     if "." in numero_str:
         return len(numero_str.split(".")[1])
     else:
         return 0
 
+# Función para seleccionar opciones de un menú
+def seleccionar_opcion(opciones: dict, mensaje: str):
+    """Función genérica para validar opciones de menú"""
+    opciones_formateadas = "\n".join([f"{clave}: {valor}" for clave, valor in opciones.items()])
+
+    while True:
+        seleccion = input(f"\n📌 Opciones disponibles:\n{opciones_formateadas}\n{mensaje} ").strip()
+        if seleccion in opciones:
+            return opciones[seleccion]
+        print("\n❌ Opción inválida. Intente de nuevo.")
+
+
+# FUNCIONES PRINCIPALES PARA LA ENTRADA DE DATOS
 
 # Función para seleccionar el exchange y el activo
-def seleccion_de_exchange():
+def seleccion_de_exchange_y_moneda():
     while True:
 
         print("\nBIENVENIDO AL BOT DE TRADING AZC 1.0")
@@ -62,29 +74,8 @@ def seleccion_de_exchange():
             "5": "OKX",
             "6": "BITGET",
         }
-        seleccion_de_exchanges = input(
-            """\nSeleccione con un numero del 1 al 6 el exchange para la operación
-            1: BINANCE
-            2: BYBIT
-            3: PHEMEX
-            4: BING X
-            5: OKX
-            6: BITGET
-            Ingrese numero de selección: """
-            )
-        exchange_seleccionado = opciones_de_exchanges.get(seleccion_de_exchanges, 0)
-        while seleccion_de_exchanges not in opciones_de_exchanges:
-            seleccion_de_exchanges = input(
-                """\nOpción equivocada, por favor seleccione nuevamante
-            1: BINANCE
-            2: BYBIT
-            3: PHEMEX
-            4: BING X
-            5: OKX
-            6: BITGET
-            Ingrese numero de selección: """
-            )
-            exchange_seleccionado = opciones_de_exchanges.get(seleccion_de_exchanges, 0)
+
+        exchange_seleccionado = seleccionar_opcion(opciones_de_exchanges, "Seleccione el exchange (1-6):")
 
         # Ingreso de moneda o activo a tradear
         moneda = input("\nPor favor introduzca el nombre del activo para TRADING:\n")
@@ -104,7 +95,6 @@ def seleccion_de_exchange():
         if datoscorrectos == "s" or datoscorrectos == "si":
             return datos_seleccionados
 
-
 # Función para la entrada de datos
 def entrada_de_datos():
     while True:
@@ -120,30 +110,7 @@ def entrada_de_datos():
             "5": "RATIO BENEFICIO/PERDIDA LONG",
             "6": "RATIO BENEFICIO/PERDIDA SHORT",
         }
-
-        seleccion_de_gestion = input(
-            """\nSeleccione con un numero del 1 al 6 el Modo de gestión de la operación
-            1: DOBLE TAP
-            2: UNIDIRECCIONAL LONG
-            3: UNIDIRECCIONAL SHORT
-            4: SNOW BALL
-            5: RATIO BENEFICIO/PERDIDA LONG
-            6: RATIO BENEFICIO/PERDIDA SHORT
-            Ingrese numero de selección: """
-        )
-        gestion_seleccionada = opciones_de_gestion.get(seleccion_de_gestion, 0)
-        while seleccion_de_gestion not in opciones_de_gestion:
-            seleccion_de_gestion = input(
-                """\nOpción equivocada, por favor seleccione nuevamante:
-            1: DOBLE TAP
-            2: UNIDIRECCIONAL LONG
-            3: UNIDIRECCIONAL SHORT
-            4: SNOW BALL
-            5: RATIO BENEFICIO/PERDIDA LONG
-            6: RATIO BENEFICIO/PERDIDA SHORT
-            Ingrese numero de selección: """
-            )
-            gestion_seleccionada = opciones_de_gestion.get(seleccion_de_gestion, 0)
+        gestion_seleccionada = seleccionar_opcion(opciones_de_gestion, "Seleccione el tipo de gestión (1-6):")
 
         # SELECCIÓN DE TIPO DE ENTRADA
         opciones_de_entrada = {
@@ -151,23 +118,7 @@ def entrada_de_datos():
             "2": "BBO",
             "3": "LIMITE"
         }
-        seleccion_de_entrada = input(
-            """\nSeleccione con un numero del 1 al 3 el Modo de gestión de la operación
-            1: MERCADO
-            2: BBO
-            3: LIMITE
-            Ingrese numero de selección: """
-        )
-        gestion_de_entrada = opciones_de_entrada.get(seleccion_de_entrada, 0)
-        while seleccion_de_entrada not in opciones_de_entrada:
-            seleccion_de_entrada = input(
-                """\nOpción equivocada, por favor seleccione nuevamante:
-            1: MERCADO
-            2: BBO
-            3: LIMITE
-            Ingrese numero de selección: """
-            )
-            gestion_de_entrada = opciones_de_entrada.get(seleccion_de_entrada, 0)
+        gestion_de_entrada = seleccionar_opcion(opciones_de_entrada, "Seleccione el tipo de entrada (1-3):")
 
         # VALORES PARA LAS ENTRADAS
         if gestion_de_entrada == "MERCADO" or gestion_de_entrada == "BBO":
@@ -180,7 +131,6 @@ def entrada_de_datos():
             else:
                 entrada_long = gestion_de_entrada
                 entrada_short = gestion_de_entrada
-            valor_pips = "N/A"
         else: # gestion_de_entrada == "LIMITE":
             if (gestion_seleccionada == "UNIDIRECCIONAL SHORT" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"):
                 entrada_long = "N/A"
@@ -201,6 +151,8 @@ def entrada_de_datos():
         cantidad_usdt_short = "N/A"
         cantidad_monedas_long = "N/A"
         cantidad_monedas_short = "N/A"
+        valor_pips = "N/A"
+        cantidad_decimales_monedas = "N/A"
 
         # VALORES PARA LA GESTION DE REENTRADAS RATIO BENEFICIO/PERDIDA LONG y SHORT
 
@@ -231,20 +183,7 @@ def entrada_de_datos():
             opcion_de_volumen = {
                 "1": "USDT",
                 "2": "MONEDAS"}
-            seleccion_volumen = input(
-            """\nSeleccione identificador de volumen:
-            1: USDT
-            2: MONEDAS
-            Ingrese la opción: """
-            )
-            modo_seleccion_volumen = opcion_de_volumen.get(seleccion_volumen, 0)
-            while seleccion_volumen not in opcion_de_volumen:
-                seleccion_volumen = input(
-            """Opción equivocada, por favor seleccione el modo nuevamente:
-            1: USDT
-            2: MONEDAS
-            Ingrese la opción: """)
-                modo_seleccion_volumen = opcion_de_volumen.get(seleccion_volumen, 0)
+            modo_seleccion_volumen = seleccionar_opcion(opcion_de_volumen, "Seleccione el identificador de volumen (1-2):")
 
             if modo_seleccion_volumen == "USDT":
                 if gestion_seleccionada == "UNIDIRECCIONAL SHORT":
@@ -270,23 +209,7 @@ def entrada_de_datos():
                 "2": "MARTINGALA",
                 "3": "AGRESIVO"
             }
-            selección = input(
-            """\nSeleccione con un numero del 1 al 3 el Modo de gestión de volumen:
-            1: % DE REENTRADAS
-            2: MARTINGALA
-            3: AGRESIVO
-            Ingrese numero de selección: """
-            )
-            modo_seleccionado = opciones_de_modo_volumen.get(selección, 0)
-            while selección not in opciones_de_modo_volumen:
-                selección = input(
-            """\nOpción equivocada, por favor seleccione el modo nuevamente:
-            1: % DE REENTRADAS
-            2: MARTINGALA
-            3: AGRESIVO
-            Ingrese numero de selección: """
-                )
-                modo_seleccionado = opciones_de_modo_volumen.get(selección, 0)
+            modo_seleccionado = seleccionar_opcion(opciones_de_modo_volumen, "Seleccione el modo de gestión de volumen (1-3):")
             # Porcentaje de volumen para gestión de reentradas
             print("\nPorcentaje de volumen para gestión de reentradas")
             porcentaje_vol_reentrada = validar_numero()
@@ -299,7 +222,7 @@ def entrada_de_datos():
         # Monto de Stop Loss
         print("\nMonto para Stop Loss o Cobertura")
         monto_de_sl = validar_numero_str()
-        cant_decimales_sl = contar_decimales(monto_de_sl)
+        cant_decimales_monto_sl = contar_decimales(monto_de_sl)
         monto_de_sl = float(monto_de_sl)
 
         # CALCULOS INICIALES BASICOS PARA LA ENTRADA DE DATOS #
@@ -310,7 +233,7 @@ def entrada_de_datos():
         list_cant_dec_precio = [cant_decimales_long, cant_decimales_short, cant_decimales_sl]
         cantidad_decimales_precio = max(list_cant_dec_precio)
 
-        if seleccion_de_entrada == "LIMITE":
+        if gestion_de_entrada == "LIMITE":
             if entrada_long == "N/A":
                 entrada_short = round(float(entrada_short), cantidad_decimales_precio)
             elif entrada_short == "N/A":
@@ -318,13 +241,13 @@ def entrada_de_datos():
             else:
                 entrada_long = round(float(entrada_long), cantidad_decimales_precio)
                 entrada_short = round(float(entrada_short), cantidad_decimales_precio)
-            # Valor de un pip
             valor_pips = round(10 ** (cantidad_decimales_precio * -1), cantidad_decimales_precio)
 
         # SELECCIÓN DE USDT Ó MONEDAS - CALCULO DE CANTIDAD DE DECIMALES DE MONEDA - CANTIDAD DE MONEDAS
         if (gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"):
             entrada_stoploss = round(float(entrada_stoploss), cantidad_decimales_precio)
-            cantidad_decimales_monedas = cant_decimales_sl
+            cantidad_decimales_monedas = cant_decimales_monto_sl
+            valor_pips = round(10 ** (cantidad_decimales_precio * -1), cantidad_decimales_precio)
             # Variables que no aplican en la gestion ratio beneficio/perdida
             cantidad_de_entradas = "N/A"
             porcentaje_dist_reentradas = "N/A"
@@ -396,8 +319,8 @@ def entrada_de_datos():
 
 
 # COMPROBACIÓN DEL MODULO
-#exchange_y_moneda = seleccion_de_exchange()
-datos_de_entrada = entrada_de_datos()
+#exchange_y_moneda = seleccion_de_exchange_y_moneda()
+#datos_de_entrada = entrada_de_datos()
 # print(f"EL exchange y la moneda seleccionada son:\n{exchange_y_moneda}")
 # print(f"Lista de datos ingresados:\n{datos_de_entrada}")
 # git push origin main --force comando en la terminal para forzar la subida al repositorio
