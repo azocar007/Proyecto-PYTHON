@@ -230,7 +230,7 @@ class PosicionLong:
         self.monto_sl = entrada_de_datos["monto_de_sl"]
         self.decimales_pre = entrada_de_datos["cantidad_decimales_precio"]
         self.cant_ree = entrada_de_datos["cantidad_de_reentradas"]
-
+    pass
 
         """ ESTA SECUENCIA DE CODIGO  DEBE EMPLEAR PARA CALCULAR LA CANTIDAD DE DECIMALES EN LAS MONEDAS Y LOS PRECIOS
         if modo_seleccion_volumen == "USDT":
