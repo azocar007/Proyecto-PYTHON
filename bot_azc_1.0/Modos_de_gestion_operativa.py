@@ -1,4 +1,4 @@
-        ### MODOS DE GESTION ###
+        ### MODOS DE GESTION OPERATIVA ###
 
 from Entrada_de_datos import entrada_de_datos
 
@@ -216,16 +216,15 @@ def cal_snow_ball(datos_calculados):
 
     return list_reent_long, list_reent_short, vol_monedas, vol_acum, precios_prom_long, precios_prom_short, precios_stop_loss_long, precios_stop_loss_short
 
-# Calculos de gestion 2:1 Long y Short
-"""
+# Calculos de gestion RATIO BENEFICIO/PERDIDA
 def ratio_beneficioperdida(datos_calculados):
     modo_gest = 
     
     
     pass
-    """
+    
 
-        """ ESTA SECEUNCIA DE CODIGO DE DEBE EMPLEAR EN LAS FUNCIONES DEL MODULO: modos_de_gestion_operativa.py PARA LA GESTION DE VOLUMEN
+        """ ESTA SECUENCIA DE CODIGO  DEBE EMPLEAR PARA CALCULAR LA CANTIDAD DE DECIMALES EN LAS MONEDAS Y LOS PRECIOS
         if modo_seleccion_volumen == "USDT":
             if (gestion_seleccionada == "UNIDIRECCIONAL SHORT" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"):
                 cantidad_monedas_short = round(float(monto_de_sl) / entrada_short, cant_decimales_sl)
@@ -262,28 +261,33 @@ def ratio_beneficioperdida(datos_calculados):
 
 
 # COMPROBACIÓN DEL MODULO
-
 """ # Diccionario de ensayo para comprobación sin la función entrada_de_datos
-datos_calculados = {"gestion_seleccionada" : "SNOW BALL" , # UNIDIRECCIONAL SHORT LONG - DOBLE TAP - SNOW BALL
-                    "entrada_long" : 0.2589 , 
-                    "entrada_short" : 0.2574 , 
-                    "porcentaje_dist_reentradas" : 2 , 
-                    "cantidad_monedas_long" : 39 ,
-                    "cantidad_monedas_short" : 39 , 
-                    "modo_seleccionado" : "% DE REENTRADAS" , # % DE REENTRADAS - MARTINGALA - AGRESIVO
-                    "porcentaje_vol_reentrada" : 50 , 
-                    "monto_de_sl" : 10 ,
-                    "porcentaje_dist_take_profit" : 5 , 
-                    "cantidad_de_reentradas" : 5 , 
-                    "cantidad_decimales_monedas" : 0 , 
-                    "cantidad_decimales_precio" : 4 , 
-                    "cant_decimales_sl" : 2 , 
-                    "valor_pips" : 0.0001}
+datos_de_entrada = {
+            "gestion_seleccionada": gestion_seleccionada,
+            "gestion_de_entrada": gestion_de_entrada,
+            "entrada_long": entrada_long,
+            "entrada_short": entrada_short,
+            "porcentaje_dist_reentradas": porcentaje_dist_reentradas,
+            "cantidad_usdt_long" : cantidad_usdt_long,
+            "cantidad_usdt_short" : cantidad_usdt_short,
+            "cantidad_monedas_long": cantidad_monedas_long,
+            "cantidad_monedas_short": cantidad_monedas_short,
+            "modo_seleccionado": modo_seleccionado,
+            "porcentaje_vol_reentrada": porcentaje_vol_reentrada,
+            "monto_de_sl": monto_de_sl,
+            "entrada_stoploss": entrada_stoploss,
+            "cantidad_de_reentradas": cantidad_de_entradas,
+            "cantidad_decimales_monedas": cantidad_decimales_monedas,
+            "cantidad_decimales_precio": cantidad_decimales_precio,
+            "valor_pips": valor_pips,
+            "gestion_take_profit": gestion_take_profit,
+            "ratio": ratio
+            }
 #"""
 # Empleando la función entrada_de_datos
-datos_a_calc = entrada_de_datos()
+datos_calculados = entrada_de_datos()
 
-if datos_a_calc["gestion_seleccionada"] == "DOBLE TAP":
+if datos_calculados["gestion_seleccionada"] == "DOBLE TAP":
 
     # Gestion SHORT:
     print("\nDATOS DE GESTION DOBLE TAP:\n")
@@ -305,7 +309,7 @@ if datos_a_calc["gestion_seleccionada"] == "DOBLE TAP":
         Los precios de Stop Loss son:{lista_stoploss_long}
         {mensaje}\n""")
 
-elif datos_a_calc["gestion_seleccionada"] == "UNIDIRECCIONAL LONG":
+elif datos_calculados["gestion_seleccionada"] == "UNIDIRECCIONAL LONG":
     #pass
     lista_reentradas_long, lista_vol_mon_long, vol_mon_total_long, lista_prom_long, lista_stoploss_long, mensaje, volum_usdt_total = cal_unidereccional_long(datos_a_calc)
     print(f"""\nDATOS DE GESTION UNIDIRECCIONAL LONG:
@@ -316,7 +320,7 @@ elif datos_a_calc["gestion_seleccionada"] == "UNIDIRECCIONAL LONG":
         Los precios de Stop Loss son:{lista_stoploss_long}
         {mensaje}\n""")
 
-elif datos_a_calc["gestion_seleccionada"] == "UNIDIRECCIONAL SHORT":
+elif datos_calculados["gestion_seleccionada"] == "UNIDIRECCIONAL SHORT":
     #pass
     lista_reentradas_short, lista_vol_mon_short, vol_mon_total_short, lista_prom_short, lista_stoploss_short, mensaje, volum_usdt_total = cal_unidereccional_short(datos_a_calc)
     print(f"""\nDATOS DE GESTION UNIDIRECCIONAL SHORT:
@@ -327,7 +331,7 @@ elif datos_a_calc["gestion_seleccionada"] == "UNIDIRECCIONAL SHORT":
         Los precios de Stop Loss son:{lista_stoploss_short}
         {mensaje}\n""")
 
-else: # modo_gestion == "SNOW BALL"
+else: # datos_calculados[modo_gestion] == "SNOW BALL"
     #pass
     lista_reentradas_long, lista_reentradas_short, lista_vol_monendas, vol_mon_total, lista_prom_long, lista_prom_short, lista_stoploss_long, lista_stoploss_short = cal_snow_ball(datos_a_calc)
     print(f"\nDATOS DE GESTION SNOW BALL:\n\nReentradas LONG: {lista_reentradas_long}\nPuntos promedios LONG: {lista_prom_long}\nPuntos de Stop Loss LONG: {lista_stoploss_long}\n\nLos volumenes de monedas son: {lista_vol_monendas},\nVolumen total acumulado: {vol_mon_total}\n\nPuntos de Stop Loss SHORT: {lista_stoploss_short}\nPuntos promedios SHORT: {lista_prom_short}\nReentradas SHORT: {lista_reentradas_short}\n")

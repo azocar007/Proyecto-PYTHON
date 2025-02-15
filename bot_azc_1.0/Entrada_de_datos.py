@@ -254,6 +254,22 @@ def entrada_de_datos():
             modo_seleccionado="N/A"
             porcentaje_vol_reentrada = "N/A"
 
+        # Solicitud de datos para gestion de Take profit
+
+        if "RATIO" in gestion_seleccionada:
+            print("\nFactor multiplicador para el RATIO BENEFICIO/PERDIDA")
+            gestion_take_profit = "RATIO BENEFICIO/PERDIDA"
+        else: # Gestion con recompras (DOBLE TAP, SNOW BALL, UNIDIRECCIONAL)
+            opciones_gestion_take_profit = {
+                "1": "% TAKE PROFIT",
+                "2": "LCD (Carga y Descarga)"
+            }
+            gestion_take_profit = seleccionar_opcion(opciones_gestion_take_profit, "Seleccione el tipo de gestión de Take Profit (1-2):")
+            print("\nPorcentaje de distancia para el Take Profit")
+
+        ratio = validar_numero()
+        ratio = round(float(ratio), 1)
+
         # ENVIA A PANTALLA LOS DATOS INGRESADOS
 
         if (gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"):
@@ -270,8 +286,9 @@ def entrada_de_datos():
             LONG: {cantidad_monedas_long} MONEDAS => {cantidad_usdt_long} USDT
             SHORT: {cantidad_monedas_short} MONEDAS => {cantidad_usdt_short} USDT
             
+            Factor RATIO BENEFICIO/PERDIDA: {ratio}
             Monto de STOP LOSS ó COBERTURA: {monto_de_sl} USDT
-            Precion de Stop Loss: {entrada_stoploss}\n"""
+            Precio de Stop Loss: {entrada_stoploss}\n"""
             )
         else: # Gestion con recompras
             print(
@@ -288,9 +305,12 @@ def entrada_de_datos():
             SHORT: {cantidad_monedas_short} MONEDAS => {cantidad_usdt_short} USDT
             
             Modo gestión de volumen: {modo_seleccionado}
-            Porcentaje de volumen para gestión de reentradas: {porcentaje_vol_reentrada}%\n
+            Porcentaje de volumen para gestión de reentradas: {porcentaje_vol_reentrada}%
+            Cantidad de entradas: {cantidad_de_entradas}
+            
             Monto de STOP LOSS ó COBERTURA: {monto_de_sl} USDT
-            Cantidad de entradas: {cantidad_de_entradas}\n"""
+            Gestion de Take Profit: {gestion_take_profit}
+            Porcentaje de distancia para TAKE PROFIT: {ratio}%\n"""
             )
 
         # Dicionario para almacenar los datos calculados
@@ -311,7 +331,10 @@ def entrada_de_datos():
             "cantidad_de_reentradas": cantidad_de_entradas,
             "cantidad_decimales_monedas": cantidad_decimales_monedas,
             "cantidad_decimales_precio": cantidad_decimales_precio,
-            "valor_pips": valor_pips}
+            "valor_pips": valor_pips,
+            "gestion_take_profit": gestion_take_profit,
+            "ratio": ratio
+            }
 
         datoscorrectos = input("\n¿Esta conforme con los datos ingresados?\n(si/no): ").lower()
         if datoscorrectos == "s"or datoscorrectos == "si":
