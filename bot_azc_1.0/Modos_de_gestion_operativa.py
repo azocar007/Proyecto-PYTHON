@@ -222,7 +222,15 @@ def ratio_beneficioperdida(datos_calculados):
     
     
     pass
-    
+
+class PosicionLong:
+    def __init__(self, entrada_de_datos: dict):
+        self.entrada = entrada_de_datos["entrada_long"]
+        self.monedas = entrada_de_datos["cantidad_monedas_long"]
+        self.monto_sl = entrada_de_datos["monto_de_sl"]
+        self.decimales_pre = entrada_de_datos["cantidad_decimales_precio"]
+        self.cant_ree = entrada_de_datos["cantidad_de_reentradas"]
+
 
         """ ESTA SECUENCIA DE CODIGO  DEBE EMPLEAR PARA CALCULAR LA CANTIDAD DE DECIMALES EN LAS MONEDAS Y LOS PRECIOS
         if modo_seleccion_volumen == "USDT":
