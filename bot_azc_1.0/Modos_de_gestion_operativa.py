@@ -229,10 +229,34 @@ class PosicionLong:
         self.monedas = entrada_de_datos["cantidad_monedas_long"]
         self.monto_sl = entrada_de_datos["monto_de_sl"]
         self.decimales_pre = entrada_de_datos["cantidad_decimales_precio"]
-        self.cant_ree = entrada_de_datos["cantidad_de_reentradas"]
+
+    def stop_loss(self):
+        precio_sl = round((self.entrada - self.monto_sl / self.monedas), self.decimales_pre)
+        return precio_sl
+
+    def uniderecional_long(self):
+        # Definiendo valores iniciales de las listas
+        list_reentradas = [self.entrada]
+        vol_monedas = [self.monedas]
+        vol_usdt = [round(self.entrada * self.monedas, 4)]
+        precios_prom = []
+        precios_stop_loss = []
+        precio_sl = self.stop_loss()
+
+        # Bucle para obtener las listas
+        while i < cant_ree and precio_sl < self.entrada:
+            # Iterador
+            i += 1
+            # Reentradas:
+            self.entrada = round((self.entrada - (self.entrada * porcentaje_ree / 100)), self.decimales_pre)
+            # vol_monedas:
+            if gestion_volumen == "MARTINGALA":
+                monedas = gest_martingala(vol_monedas, porcentaje_vol, decimales_mon)
+            elif gestion_volumen == "% DE REENTRADAS":
+                monedas = gest_porcen_reentradas(monedas, porcentaje_vol, decimales_mon)
     pass
 
-        """ ESTA SECUENCIA DE CODIGO  DEBE EMPLEAR PARA CALCULAR LA CANTIDAD DE DECIMALES EN LAS MONEDAS Y LOS PRECIOS
+""" ESTA SECUENCIA DE CODIGO  DEBE EMPLEAR PARA CALCULAR LA CANTIDAD DE DECIMALES EN LAS MONEDAS Y LOS PRECIOS
         if modo_seleccion_volumen == "USDT":
             if (gestion_seleccionada == "UNIDIRECCIONAL SHORT" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"):
                 cantidad_monedas_short = round(float(monto_de_sl) / entrada_short, cant_decimales_sl)
@@ -264,34 +288,35 @@ class PosicionLong:
             else:
                 cantidad_usdt_long = round(float(cantidad_monedas) * entrada_long, 2)
                 cantidad_usdt_short = round(float(cantidad_monedas) * entrada_short, 2)
-            """
+"""
 
 
 
 # COMPROBACIÓN DEL MODULO
 """ # Diccionario de ensayo para comprobación sin la función entrada_de_datos
 datos_de_entrada = {
-            "gestion_seleccionada": gestion_seleccionada,
+            "gestion_seleccionada": "SNOW BALL" , # UNIDIRECCIONAL SHORT LONG - DOBLE TAP - SNOW BALL
             "gestion_de_entrada": gestion_de_entrada,
-            "entrada_long": entrada_long,
-            "entrada_short": entrada_short,
-            "porcentaje_dist_reentradas": porcentaje_dist_reentradas,
-            "cantidad_usdt_long" : cantidad_usdt_long,
-            "cantidad_usdt_short" : cantidad_usdt_short,
-            "cantidad_monedas_long": cantidad_monedas_long,
-            "cantidad_monedas_short": cantidad_monedas_short,
-            "modo_seleccionado": modo_seleccionado,
-            "porcentaje_vol_reentrada": porcentaje_vol_reentrada,
-            "monto_de_sl": monto_de_sl,
-            "entrada_stoploss": entrada_stoploss,
-            "cantidad_de_reentradas": cantidad_de_entradas,
-            "cantidad_decimales_monedas": cantidad_decimales_monedas,
-            "cantidad_decimales_precio": cantidad_decimales_precio,
-            "valor_pips": valor_pips,
-            "gestion_take_profit": gestion_take_profit,
-            "ratio": ratio
+            "entrada_long": 0.2589,
+            "entrada_short": 0.2574,
+            "porcentaje_dist_reentradas": 2,
+            "cantidad_usdt_long" : 10.0,
+            "cantidad_usdt_short" : 10.0,
+            "cantidad_monedas_long": 39,
+            "cantidad_monedas_short": 39,
+            "modo_seleccionado": "% DE REENTRADAS", # % DE REENTRADAS - MARTINGALA - AGRESIVO
+            "porcentaje_vol_reentrada": 50,
+            "monto_de_sl": 10.0,
+            "entrada_stoploss": 0.2700,
+            "cantidad_de_reentradas": 5,
+            "cantidad_decimales_monedas": 2,
+            "cantidad_decimales_precio": 4,
+            "valor_pips": 0.0001,
+            "gestion_take_profit": "RATIO BENEFICIO/PERDIDA", # "% TAKE PROFIT" - "LCD (Carga y Descarga)"
+            "ratio": 2
             }
-#"""
+"""
+
 # Empleando la función entrada_de_datos
 datos_calculados = entrada_de_datos()
 

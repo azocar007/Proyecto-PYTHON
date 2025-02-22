@@ -1,4 +1,5 @@
 ### ENTRADA DE DATOS ###
+import pprint
 
 # FUNCIONES ANIDADAS PARA LA ENTRADA DE DATOS
 
@@ -345,5 +346,5 @@ def entrada_de_datos():
 #exchange_y_moneda = seleccion_de_exchange_y_moneda()
 #datos_de_entrada = entrada_de_datos()
 # print(f"EL exchange y la moneda seleccionada son:\n{exchange_y_moneda}")
-# print(f"Lista de datos ingresados:\n{datos_de_entrada}")
+# pprint.pprint(f"Diccionario de datos ingresados:\n{datos_de_entrada}")
 # git push origin main --force comando en la terminal para forzar la subida al repositorio
