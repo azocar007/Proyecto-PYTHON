@@ -224,36 +224,107 @@ def ratio_beneficioperdida(datos_calculados):
     pass
 
 class PosicionLong:
+    # Variables de la clase
     def __init__(self, entrada_de_datos: dict):
-        self.entrada = entrada_de_datos["entrada_long"]
-        self.monedas = entrada_de_datos["cantidad_monedas_long"]
-        self.monto_sl = entrada_de_datos["monto_de_sl"]
-        self.decimales_pre = entrada_de_datos["cantidad_decimales_precio"]
+        
+        self.gestion_seleccionada = entrada_de_datos["gestion_seleccionada"] # UNIDIRECCIONAL SHORT LONG - DOBLE TAP - SNOW BALL
+        self.gestion_de_entrada = entrada_de_datos["gestion_de_entrada"] # MERCADO - LIMITE - BBO
+        self.entrada_long = entrada_de_datos["entrada_long"]
+        self.entrada_short = entrada_de_datos["entrada_short"]
+        self.porcentaje_dist_reentradas = entrada_de_datos["porcentaje_dist_reentradas"]
+        self.cantidad_usdt_long = entrada_de_datos["cantidad_usdt_long"]
+        self.cantidad_usdt_short = entrada_de_datos["cantidad_usdt_short"]
+        self.cantidad_monedas_long = entrada_de_datos["cantidad_monedas_long"]
+        self.cantidad_monedas_short = entrada_de_datos["cantidad_monedas_short"]
+        self.modo_seleccionado = entrada_de_datos["modo_seleccionado"] # % DE REENTRADAS - MARTINGALA - AGRESIVO
+        self.porcentaje_vol_reentrada = entrada_de_datos["porcentaje_vol_reentrada"]
+        self.monto_de_sl = entrada_de_datos["monto_de_sl"]
+        self.entrada_stoploss = entrada_de_datos["entrada_stoploss"]
+        self.cantidad_de_reentradas = entrada_de_datos["cantidad_de_reentradas"]
+        self.cantidad_decimales_monedas = entrada_de_datos["cantidad_decimales_monedas"]
+        self.cantidad_decimales_precio = entrada_de_datos["cantidad_decimales_precio"]
+        self.valor_pips = entrada_de_datos["valor_pips"]
+        self.gestion_take_profit = entrada_de_datos["gestion_take_profit"] # "% TAKE PROFIT" - "LCD (Carga y Descarga)"
+        self.ratio = entrada_de_datos["ratio"]
 
-    def stop_loss(self):
-        precio_sl = round((self.entrada - self.monto_sl / self.monedas), self.decimales_pre)
-        return precio_sl
+    # Funcion de recompras
+    def recompras(self):
+        # Definir las variables de la función con los indices del diccionario    
+        i = 0
+        modo_gest = self.gestion_seleccionada #"UNIDIRECCIONAL LONG"
+        precio = self.entrada_long #datos_calculados["entrada_long"]
+        monedas = self.cantidad_monedas_long #datos_calculados["cantidad_monedas_long"]
+        monto_sl = self.monto_de_sl #datos_calculados["monto_de_sl"]
+        decimales_pre = self.cantidad_decimales_precio #datos_calculados["cantidad_decimales_precio"]
+        cant_ree = self.cantidad_de_reentradas #datos_calculados["cantidad_de_reentradas"]
+        porcentaje_ree = self.porcentaje_dist_reentradas #datos_calculados["porcentaje_dist_reentradas"]
+        gestion_volumen = self.modo_seleccionado #datos_calculados["modo_seleccionado"]
+        porcentaje_vol = self.porcentaje_vol_reentrada #datos_calculados["porcentaje_vol_reentrada"]
+        decimales_mon = self.cantidad_decimales_monedas #datos_calculados["cantidad_decimales_monedas"]
 
-    def uniderecional_long(self):
         # Definiendo valores iniciales de las listas
-        list_reentradas = [self.entrada]
-        vol_monedas = [self.monedas]
-        vol_usdt = [round(self.entrada * self.monedas, 4)]
+        list_reentradas = [precio]
+        vol_monedas = [monedas]
+        vol_usdt = [round(precio*monedas,4)]
         precios_prom = []
         precios_stop_loss = []
-        precio_sl = self.stop_loss()
+        precio_sl = round((precio - monto_sl / monedas), decimales_pre)
+
+        # Condicional para corregir el valor de "cero 0" en la cantidad de reentradas
+        if cant_ree <= 0:
+            cant_ree = 1000
 
         # Bucle para obtener las listas
-        while i < cant_ree and precio_sl < self.entrada:
+        while i < cant_ree and precio_sl < precio:
             # Iterador
             i += 1
             # Reentradas:
-            self.entrada = round((self.entrada - (self.entrada * porcentaje_ree / 100)), self.decimales_pre)
+            precio = round((precio - (precio * porcentaje_ree/100)), decimales_pre)
             # vol_monedas:
             if gestion_volumen == "MARTINGALA":
                 monedas = gest_martingala(vol_monedas, porcentaje_vol, decimales_mon)
             elif gestion_volumen == "% DE REENTRADAS":
                 monedas = gest_porcen_reentradas(monedas, porcentaje_vol, decimales_mon)
+            else:
+                monedas = gest_agresivo(precio, porcentaje_vol, vol_monedas, vol_usdt, decimales_mon, modo_gest)
+            # Precios_prom (precios promedios)
+            usdt = round(monedas * precio, 4)
+            prom = round(sum(vol_usdt) / sum(vol_monedas), decimales_pre)
+            # Precio de Stop Loss
+            precio_sl = round(prom - monto_sl / sum(vol_monedas),decimales_pre)
+            # Ingreso de resultados a las listas correspondientes
+            vol_usdt.append(usdt)
+            vol_monedas.append(monedas)
+            list_reentradas.append(precio)
+            precios_prom.append(prom)
+            precios_stop_loss.append(precio_sl)
+        # Eliminando elementos que sobran en las listas
+        vol_monedas.pop()
+        list_reentradas.pop()
+        vol_acum = sum(vol_monedas)
+        vol_usdt_total = round(vol_acum * precios_prom[-1], datos_calculados["cant_decimales_sl"])
+        if cant_ree > len(list_reentradas):
+            mensj = "Cantidad de entradas solicitadas es mayor a las calculadas."
+        else:
+            mensj = "Cantidad de entradas acorde a lo establecido"
+        # Retorno de resultados
+        return {"Precios de reentradas": list_reentradas,
+                "Precios promedios": precios_prom,
+                "Precios de stop loss": precios_stop_loss,
+                "Volumenes de monedas": vol_monedas,
+                "Volumen monedas total": vol_acum,
+                "Volumen USDT total": vol_usdt_total,
+                "Mensaje": mensj}
+        
+        pass
+
+    # Funcion de stop loss
+    def stop_loss(self):
+        precio_sl = round((self.entrada - self.monto_sl / self.monedas), self.decimales_pre)
+        return precio_sl
+        pass
+
+
     pass
 
 """ ESTA SECUENCIA DE CODIGO  DEBE EMPLEAR PARA CALCULAR LA CANTIDAD DE DECIMALES EN LAS MONEDAS Y LOS PRECIOS
