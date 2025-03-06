@@ -218,9 +218,9 @@ def cal_snow_ball(datos_calculados: dict):
 
 # Clase para la gestión de posiciones LONG
 class PosicionLong:
-    # Variables de la clase
+    # Variables de la clase 
     def __init__(self, entrada_de_datos: dict):
-        
+        # Variables del diccionario de entrada de datos
         self.gestion_seleccionada = entrada_de_datos["gestion_seleccionada"] # UNIDIRECCIONAL SHORT LONG - DOBLE TAP - SNOW BALL - RATIO BENEFICIO/PERDIDA
         self.gestion_de_entrada = entrada_de_datos["gestion_de_entrada"] # MERCADO - LIMITE - BBO
         self.entrada_long = entrada_de_datos["entrada_long"]
@@ -241,7 +241,7 @@ class PosicionLong:
         self.gestion_take_profit = entrada_de_datos["gestion_take_profit"] # "% TAKE PROFIT" - "LCD (Carga y Descarga)"
         self.ratio = entrada_de_datos["ratio"]
 
-    # Funcion de recompras
+    # Metodo de recompras
     def recompras(self):
         # Definir las variables de la función con las claves del diccionario    
         i = 0
@@ -255,6 +255,10 @@ class PosicionLong:
         gestion_volumen = self.modo_seleccionado
         porcentaje_vol = self.porcentaje_vol_reentrada
         decimales_mon = self.cantidad_decimales_monedas
+
+        # Definiendo el valor N/A de monedas 
+        if monedas == "N/A":
+            monedas = round(precio * self.cantidad_usdt_long, decimales_mon)
 
         # Definiendo valores iniciales de las listas
         list_reentradas = [precio]
@@ -295,7 +299,7 @@ class PosicionLong:
         # Eliminando elementos que sobran en las listas
         vol_monedas.pop()
         list_reentradas.pop()
-        vol_acum = sum(vol_monedas)
+        vol_acum = round(sum(vol_monedas),decimales_mon)
         vol_usdt_total = round(vol_acum * precios_prom[-1], self.cantidad_decimales_monedas)
         if cant_ree > len(list_reentradas):
             mensj = "Cantidad de entradas solicitadas es mayor a las calculadas."
@@ -305,22 +309,35 @@ class PosicionLong:
         return {"Precios de reentradas": list_reentradas,
                 "Precios promedios": precios_prom,
                 "Precios de stop loss": precios_stop_loss,
+                "Precio de stop loss": precios_stop_loss[-1],
                 "Volumenes de monedas": vol_monedas,
                 "Volumen monedas total": vol_acum,
                 "Volumen USDT total": vol_usdt_total,
                 "Mensaje": mensj}
 
-    # Funcion de stop loss
+    # Metodo de stop loss
     def stop_loss(self):
+        """
+        Se deben redefinir las variables: 
+        posicion_actual
+        monto_de_sl = self.monto_de_sl
+        cantidad_monedas_actual
+        cantidad_decimales_precio
+        """
         precio_sl = round((self.entrada_long - self.monto_de_sl / self.cantidad_monedas_long), self.cantidad_decimales_precio)
-        return precio_sl
+        """
+        return {"Precio de entrada" : self.entrada_long,
+                "Volumen moneda total": self.cantidad_monedas_long,
+                "Precio de stop loss": precio_sl}
+        """
 
     # Funcion para calcular el volumen de las monedas
     def vol_monedas(self):
         if self.gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG":
-            self.cantidad_monedas_long = round((self.monto_de_sl * -1) / (self.entrada_long - self.entrada_stoploss), self.cantidad_decimales_monedas)
-
-    #pass
+            self.cantidad_monedas_long = round((self.monto_de_sl ) / abs(self.entrada_long - self.entrada_stoploss), self.cantidad_decimales_monedas)
+        return {"Precio de entrada" : self.entrada_long,
+                "Volumen monedas total": self.cantidad_monedas_long,
+                "Precio de stop loss": self.entrada_stoploss}
 
 """ ESTA SECUENCIA DE CODIGO  DEBE EMPLEAR PARA CALCULAR LA CANTIDAD DE DECIMALES EN LAS MONEDAS Y LOS PRECIOS
         if modo_seleccion_volumen == "USDT":
@@ -441,5 +458,7 @@ else: # datos_calculados[modo_gestion] == "SNOW BALL"
 """
 
 Datos_calculados = PosicionLong(entrada_de_datos())
-pprint.pprint(Datos_calculados.recompras())
+#pprint.pprint(Datos_calculados.recompras())
+pprint.pprint(Datos_calculados.vol_monedas())
+
 
