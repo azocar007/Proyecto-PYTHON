@@ -410,7 +410,7 @@ class PosicionShort:
             # Iterador
             i += 1
             # Reentradas:
-            precio = round((precio - (precio * porcentaje_ree/100)), decimales_pre)
+            precio = round((precio + (precio * porcentaje_ree/100)), decimales_pre)
             # vol_monedas:
             if gestion_volumen == "MARTINGALA":
                 monedas = gest_martingala(vol_monedas, porcentaje_vol, decimales_mon)
@@ -450,8 +450,37 @@ class PosicionShort:
 
     # Metodo de stop loss
     def stop_loss(self):
-        pass
+        """
+        Se deben redefinir las variables: 
+        posicion_actual = COLOCAR LA FUNCIÓN QUE LLAMA LA POSICIÓN ACTUAL DE LA OPERACIÓN EN EL ACTIVO
+        monto_de_sl = self.monto_de_sl
+        cantidad_monedas_actual
+        cantidad_decimales_precio
+        """
+        precio_sl = round((self.entrada_short + self.monto_de_sl / self.cantidad_monedas_short), self.cantidad_decimales_precio)
+        return {"Volumen moneda total": self.cantidad_monedas_short,
+                "Precio de stop loss": precio_sl}
 
+    def take_profit(self):
+        """
+        Se deben redefinir las variables: 
+        posicion_actual = COLOCAR LA FUNCIÓN QUE LLAMA LA POSICIÓN ACTUAL DE LA OPERACIÓN EN EL ACTIVO
+        monto_de_sl = self.monto_de_sl
+        cantidad_monedas_actual
+        cantidad_decimales_precio
+        """
+        if self.gestion_take_profit != "LCD (Carga y Descarga)":
+            precio_tp = round((self.entrada_short * self.ratio/100 - self.entrada_short), self.cantidad_decimales_precio)
+            return {"Volumen moneda total": self.cantidad_monedas_short,
+                    "Precio de take profit": precio_tp}
+
+    # Funcion para calcular el volumen de las monedas
+    def vol_monedas(self):
+        if self.gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT":
+            self.cantidad_monedas_short = round((self.monto_de_sl ) / abs(self.entrada_short - self.entrada_stoploss), self.cantidad_decimales_monedas)
+        return {"Precio de entrada" : self.entrada_short,
+                "Volumen monedas total": self.cantidad_monedas_short,
+                "Precio de stop loss": self.entrada_stoploss}
 
 
 
@@ -485,11 +514,11 @@ datos_de_entrada = {
 #Datos_calculados = PosicionLong(entrada_de_datos())
 Datos_calculados_long= PosicionLong(datos_de_entrada)
 Datos_calculados_short= PosicionShort(datos_de_entrada)
-
-#pprint.pprint(Datos_calculados_long.recompras())
+# Long
+pprint.pprint(Datos_calculados_long.recompras())
 #pprint.pprint(Datos_calculados_long.vol_monedas())
 #pprint.pprint(Datos_calculados_long.take_profit())
-
+#Short
 pprint.pprint(Datos_calculados_short.recompras())
 #pprint.pprint(Datos_calculados_short.vol_monedas())
 #pprint.pprint(Datos_calculados_short.take_profit())
