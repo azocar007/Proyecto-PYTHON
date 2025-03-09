@@ -1,4 +1,4 @@
-        ### MODOS DE GESTION OPERATIVA ###
+### MODOS DE GESTION OPERATIVA ###
 import pprint
 from Entrada_de_datos import entrada_de_datos
 
@@ -315,6 +315,59 @@ class PosicionLong:
                 "Volumen USDT total": vol_usdt_total,
                 "Mensaje": mensj}
 
+    # Metodo de snow ball
+    def snow_ball(self):
+        # Definir las variables de la función con las claves del diccionario    
+        i = 0
+        precio_long = self.entrada_long
+        list_reent_long = [precio_long]
+        monedas = self.cantidad_monedas_long
+        gestion_volumen = self.modo_seleccionado
+        vol_monedas = [monedas]
+        vol_usdt_long = [round(precio_long * self.cantidad_monedas_long, 4)]
+        precios_prom_long = []
+        precios_stop_loss_long = []
+        precio_sl_long = round((precio_long - self.monto_de_sl / self.cantidad_monedas_long), self.cantidad_decimales_precio)
+        decimales_mon = self.cantidad_decimales_monedas
+
+        # Condicional para corregir el valor de "cero 0" en la cantidad de reentradas
+        if self.cantidad_de_reentradas <= 2:
+            self.cantidad_de_reentradas = 2
+
+        # Bucle para obtener las listas LONG
+        while i < self.cantidad_de_reentradas:
+            # Iterador
+            i += 1
+            # Reentradas:
+            precio_long = round((precio_long + (precio_long * self.porcentaje_dist_reentradas / 100)), self.cantidad_decimales_precio)
+            # vol_monedas:
+            if gestion_volumen == "MARTINGALA":
+                monedas = gest_martingala(vol_monedas, self.porcentaje_vol_reentrada, self.cantidad_decimales_monedas)
+            elif gestion_volumen == "% DE REENTRADAS":
+                monedas = gest_porcen_reentradas(monedas, self.porcentaje_vol_reentrada, self.cantidad_decimales_monedas)
+            else:
+                monedas = gest_agresivo(precio_long, self.porcentaje_vol_reentrada, vol_monedas, vol_usdt_long, decimales_mon, modo_gest = "UNIDIRECCIONAL SHORT")
+            # Precios_prom (precios promedios)
+            usdt_long = round(monedas * precio_long, 4)
+            prom_long = round(sum(vol_usdt_long) / sum(vol_monedas), self.cantidad_decimales_precio)
+            # Precio de Stop Loss
+            precio_sl_long = round(prom_long - self.monto_de_sl / sum(vol_monedas), self.cantidad_decimales_precio)
+            # Ingreso de resultados a las listas correspondientes
+            vol_usdt_long.append(usdt_long)
+            vol_monedas.append(monedas)
+            list_reent_long.append(precio_long)
+            precios_prom_long.append(prom_long)
+            precios_stop_loss_long.append(precio_sl_long)
+        vol_monedas.pop()
+        list_reent_long.pop()
+        vol_acum = sum(vol_monedas)
+
+        return {"Precios de reentradas" : list_reent_long,
+                "Precios promedios" : precios_prom_long,
+                "Precios de stop loss" : precios_stop_loss_long,
+                "Volumenes de monedas" : vol_monedas,
+                "Volumen monedas total" : vol_acum}
+
     # Metodo de stop loss
     def stop_loss(self):
         """
@@ -328,6 +381,7 @@ class PosicionLong:
         return {"Volumen moneda total": self.cantidad_monedas_long,
                 "Precio de stop loss": precio_sl}
 
+    # Metodo de take profit
     def take_profit(self):
         """
         Se deben redefinir las variables: 
@@ -336,10 +390,16 @@ class PosicionLong:
         cantidad_monedas_actual
         cantidad_decimales_precio
         """
-        if self.gestion_take_profit != "LCD (Carga y Descarga)":
+        if self.gestion_take_profit == "% TAKE PROFIT":
             precio_tp = round((self.entrada_long * self.ratio/100 + self.entrada_long), self.cantidad_decimales_precio)
             return {"Volumen moneda total": self.cantidad_monedas_long,
                     "Precio de take profit": precio_tp}
+        elif self.gestion_take_profit == "RATIO BENEFICIO/PERDIDA":
+            precio_tp = round(abs(abs(self.entrada_long - self.entrada_stoploss) * self.ratio + self.entrada_long), self.cantidad_decimales_precio)
+            return {"Volumen monedas total": self.cantidad_monedas_short,
+                    "Precio de take profit": precio_tp}
+        else: # "LCD (Carga y Descarga)"
+            pass
 
     # Funcion para calcular el volumen de las monedas
     def vol_monedas(self):
@@ -350,7 +410,7 @@ class PosicionLong:
                 "Precio de stop loss": self.entrada_stoploss}
 
 # Clase para la gestión de posiciones SHORT
-class PosicionShort:
+class PosicionShort: # Falta calcular el metodo de snow ball
     # Variables de la clase 
     def __init__(self, entrada_de_datos: dict):
         # Variables del diccionario de entrada de datos
@@ -461,6 +521,7 @@ class PosicionShort:
         return {"Volumen moneda total": self.cantidad_monedas_short,
                 "Precio de stop loss": precio_sl}
 
+    # Metodo de take profit
     def take_profit(self):
         """
         Se deben redefinir las variables: 
@@ -469,25 +530,32 @@ class PosicionShort:
         cantidad_monedas_actual
         cantidad_decimales_precio
         """
-        if self.gestion_take_profit != "LCD (Carga y Descarga)":
-            precio_tp = round((self.entrada_short * self.ratio/100 - self.entrada_short), self.cantidad_decimales_precio)
+        if self.gestion_take_profit == "% TAKE PROFIT":
+            precio_tp = round(abs(self.entrada_short * self.ratio/100 - self.entrada_short), self.cantidad_decimales_precio)
             return {"Volumen moneda total": self.cantidad_monedas_short,
                     "Precio de take profit": precio_tp}
+        elif self.gestion_take_profit == "RATIO BENEFICIO/PERDIDA":
+            precio_tp = round(abs(abs(self.entrada_short - self.entrada_stoploss) * self.ratio - self.entrada_short), self.cantidad_decimales_precio)
+            return {"Volumen monedas total": self.cantidad_monedas_short,
+                    "Precio de take profit": precio_tp}
+        else: # "LCD (Carga y Descarga)"
+            pass
 
     # Funcion para calcular el volumen de las monedas
     def vol_monedas(self):
         if self.gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT":
             self.cantidad_monedas_short = round((self.monto_de_sl ) / abs(self.entrada_short - self.entrada_stoploss), self.cantidad_decimales_monedas)
-        return {"Precio de entrada" : self.entrada_short,
-                "Volumen monedas total": self.cantidad_monedas_short,
-                "Precio de stop loss": self.entrada_stoploss}
+            return {"Precio de entrada" : self.entrada_short,
+                    "Volumen monedas total": self.cantidad_monedas_short,
+                    "Precio de stop loss": self.entrada_stoploss}
 
 
 
 # COMPROBACIÓN DEL MODULO
+
 #""" # Diccionario de ensayo para comprobación sin la función entrada_de_datos
 datos_de_entrada = {
-            "gestion_seleccionada": "SNOW BALL" , # UNIDIRECCIONAL SHORT LONG - DOBLE TAP - SNOW BALL
+            "gestion_seleccionada": "UNIDERECCIONAL SHORT" , # UNIDIRECCIONAL SHORT LONG - DOBLE TAP - SNOW BALL
             "gestion_de_entrada": "LIMITE", # MERCADO - LIMITE - BBO
             "entrada_long": 0.2589,
             "entrada_short": 0.2574,
@@ -499,27 +567,34 @@ datos_de_entrada = {
             "modo_seleccionado": "% DE REENTRADAS", # % DE REENTRADAS - MARTINGALA - AGRESIVO
             "porcentaje_vol_reentrada": 50,
             "monto_de_sl": 10.0,
-            "entrada_stoploss": 0.2700,
-            "cantidad_de_reentradas": 10,
+            "entrada_stoploss": 0.2400,
+            "cantidad_de_reentradas": 2,
             "cantidad_decimales_monedas": 0,
             "cantidad_decimales_precio": 4,
             "valor_pips": 0.0001,
             "gestion_take_profit": "RATIO BENEFICIO/PERDIDA", # "% TAKE PROFIT" - "LCD (Carga y Descarga)"
-            "ratio": 4
+            "ratio": 2
             }
 #"""
 
-# Comprobando el modulo
-
+# Empleando el modulo Entrada_de_datos
 #Datos_calculados = PosicionLong(entrada_de_datos())
+#Datos_calculados = PosicionShort(entrada_de_datos())
+
+# Empleando el diccionario de ensayo
 Datos_calculados_long= PosicionLong(datos_de_entrada)
 Datos_calculados_short= PosicionShort(datos_de_entrada)
+
 # Long
-pprint.pprint(Datos_calculados_long.recompras())
+#pprint.pprint(Datos_calculados_long.recompras())
 #pprint.pprint(Datos_calculados_long.vol_monedas())
 #pprint.pprint(Datos_calculados_long.take_profit())
-#Short
-pprint.pprint(Datos_calculados_short.recompras())
+#pprint.pprint(Datos_calculados_long.stop_loss())
+pprint.pprint(Datos_calculados_long.snow_ball())
+
+# Short
+#pprint.pprint(Datos_calculados_short.recompras())
 #pprint.pprint(Datos_calculados_short.vol_monedas())
 #pprint.pprint(Datos_calculados_short.take_profit())
+#pprint.pprint(Datos_calculados_short.stop_loss())
 
