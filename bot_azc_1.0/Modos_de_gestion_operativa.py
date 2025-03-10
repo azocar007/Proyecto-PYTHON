@@ -508,6 +508,59 @@ class PosicionShort: # Falta calcular el metodo de snow ball
                 "Volumen USDT total": vol_usdt_total,
                 "Mensaje": mensj}
 
+    # Metodo de snow ball
+    def snow_ball(self):
+        # Definir las variables de la función con las claves del diccionario    
+        i = 0
+        precio_short = self.entrada_short
+        list_reent_short = [precio_short]
+        monedas = self.cantidad_monedas_short
+        gestion_volumen = self.modo_seleccionado
+        vol_monedas = [monedas]
+        vol_usdt_short = [round(precio_short * self.cantidad_monedas_short, 4)]
+        precios_prom_short = []
+        precios_stop_loss_short = []
+        precio_sl_short = round((precio_short + self.monto_de_sl / self.cantidad_monedas_short), self.cantidad_decimales_precio)
+        decimales_mon = self.cantidad_decimales_monedas
+
+        # Condicional para corregir el valor de "cero 0" en la cantidad de reentradas
+        if self.cantidad_de_reentradas <= 2:
+            self.cantidad_de_reentradas = 2
+
+        # Bucle para obtener las listas SHORT
+        while i < self.cantidad_de_reentradas:
+            # Iterador
+            i += 1
+            # Reentradas:
+            precio_short = round((precio_short - (precio_short * self.porcentaje_dist_reentradas / 100)), self.cantidad_decimales_precio)
+            # vol_monedas:
+            if gestion_volumen == "MARTINGALA":
+                monedas = gest_martingala(vol_monedas, self.porcentaje_vol_reentrada, self.cantidad_decimales_monedas)
+            elif gestion_volumen == "% DE REENTRADAS":
+                monedas = gest_porcen_reentradas(monedas, self.porcentaje_vol_reentrada, self.cantidad_decimales_monedas)
+            else:
+                monedas = gest_agresivo(precio_short, self.porcentaje_vol_reentrada, vol_monedas, vol_usdt_short, decimales_mon, modo_gest = "UNIDIRECCIONAL SHORT")
+            # Precios_prom (precios promedios)
+            usdt_short = round(monedas * precio_short, 4)
+            prom_short = round(sum(vol_usdt_short) / sum(vol_monedas), self.cantidad_decimales_precio)
+            # Precio de Stop Loss
+            precio_sl_short = round(prom_short + self.monto_de_sl / sum(vol_monedas), self.cantidad_decimales_precio)
+            # Ingreso de resultados a las listas correspondientes
+            vol_usdt_short.append(usdt_short)
+            vol_monedas.append(monedas)
+            list_reent_short.append(precio_short)
+            precios_prom_short.append(prom_short)
+            precios_stop_loss_short.append(precio_sl_short)
+        vol_monedas.pop()
+        list_reent_short.pop()
+        vol_acum = sum(vol_monedas)
+
+        return {"Precios de reentradas" : list_reent_short,
+                "Precios promedios" : precios_prom_short,
+                "Precios de stop loss" : precios_stop_loss_short,
+                "Volumenes de monedas" : vol_monedas,
+                "Volumen monedas total" : vol_acum}
+
     # Metodo de stop loss
     def stop_loss(self):
         """
@@ -568,7 +621,7 @@ datos_de_entrada = {
             "porcentaje_vol_reentrada": 50,
             "monto_de_sl": 10.0,
             "entrada_stoploss": 0.2400,
-            "cantidad_de_reentradas": 2,
+            "cantidad_de_reentradas": 4,
             "cantidad_decimales_monedas": 0,
             "cantidad_decimales_precio": 4,
             "valor_pips": 0.0001,
@@ -590,11 +643,27 @@ Datos_calculados_short= PosicionShort(datos_de_entrada)
 #pprint.pprint(Datos_calculados_long.vol_monedas())
 #pprint.pprint(Datos_calculados_long.take_profit())
 #pprint.pprint(Datos_calculados_long.stop_loss())
-pprint.pprint(Datos_calculados_long.snow_ball())
+#pprint.pprint(Datos_calculados_long.snow_ball())
 
 # Short
-#pprint.pprint(Datos_calculados_short.recompras())
+print("\nDATOS DE CLASE LA SHORT:")
+pprint.pprint(Datos_calculados_short.recompras())
 #pprint.pprint(Datos_calculados_short.vol_monedas())
 #pprint.pprint(Datos_calculados_short.take_profit())
 #pprint.pprint(Datos_calculados_short.stop_loss())
+#pprint.pprint(Datos_calculados_short.snow_ball())
 
+""" 
+Para cambiar un dato de llos diccionarios resultantes de la clase
+debemos cambiar el valor de la variable en el diccionario de entrada y
+volver a instanciar (ejecutar) la clase con el nuevo diccionario de entrada.
+No es necesario crear una nueva variable para igualarla con algun valor extraiodo 
+de los diccionarios resultantes de la clase.
+"""
+
+# nueva_entrada_short = Datos_calculados_short.recompras()["Precios promedios"][-2]
+datos_de_entrada["entrada_short"] = Datos_calculados_short.recompras()["Precios promedios"][-1] #nueva_entrada_short
+Datos_calculados_short = PosicionShort(datos_de_entrada)
+
+print("\nDatos de Snow ball SHORT:")
+pprint.pprint(Datos_calculados_short.snow_ball())
