@@ -654,10 +654,10 @@ pprint.pprint(Datos_calculados_short.recompras())
 #pprint.pprint(Datos_calculados_short.snow_ball())
 
 """ 
-Para cambiar un dato de llos diccionarios resultantes de la clase
+Para cambiar un dato de los diccionarios resultantes de la clase
 debemos cambiar el valor de la variable en el diccionario de entrada y
 volver a instanciar (ejecutar) la clase con el nuevo diccionario de entrada.
-No es necesario crear una nueva variable para igualarla con algun valor extraiodo 
+No es necesario crear una nueva variable para igualarla con algun valor extraido 
 de los diccionarios resultantes de la clase.
 """
 
