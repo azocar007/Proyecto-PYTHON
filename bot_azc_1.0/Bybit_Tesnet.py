@@ -11,9 +11,9 @@ estado = False
 capital = 0
 
 session = HTTP(
-    testnet=False,
-    api_key= "X2ubLN641kBWsqb0mm",
-    api_secret="rU5QWC2vUaOfpg9BPbdPZ5EPwcbNenLKr7tc"
+    testnet=True,
+    api_key= 'X2ubLN641kBWsqb0mm',
+    api_secret='rU5QWC2vUaOfpg9BPbdPZ5EPwcbNenLKr7tc'
 )
 
 
