@@ -104,27 +104,16 @@ session = HTTP(
 )
 # Extraer información de la moneda seleccionada
 inf_moneda = session.get_instruments_info(category="linear", symbol=symbol)
-pip_moneda = inf_moneda['result']['list'][0]['priceFilter']['tickSize']
+pip_precio = inf_moneda['result']['list'][0]['priceFilter']['tickSize']
 min_usdt = inf_moneda['result']['list'][0]['lotSizeFilter']['minNotionalValue']
-
+pip_moneda = inf_moneda['result']['list'][0]['lotSizeFilter']['minOrderQty']
 cant_decimales_precio = inf_moneda['result']['list'][0]['priceScale']
 
-pprint.pprint(inf_moneda)
-print("\nPip de la moneda: ", pip_moneda, type(pip_moneda))
-print("\nMínimo de USDT: ", min_usdt, type(min_usdt))
-print("\nCantidad de decimales en el precio: ", cant_decimales_precio, type(cant_decimales_precio))
+#pprint.pprint(inf_moneda)
+#print("\nPip de la moneda: ", pip_moneda, type(pip_moneda))
+#print("\nMínimo de USDT: ", min_usdt, type(min_usdt))
+#print("\nCantidad de decimales en el precio: ", cant_decimales_precio, type(cant_decimales_precio))
 
-# Codigo para stop loss Gafas
+posiciones = session.get_positions(category="linear", symbol=symbol)
 
-def qty_step(symbol, price):
-    step = session.get_instruments_info(category="linear", symbol=symbol)
-    ticksize = float(step['result']['list'][0]['priceFilter']['tickSize'])
-    scala_precio = int(step['result']['list'][0]['priceScale'])
-    precision = Decimal(f"{10**scala_precio}")
-    tickdec = Decimal(f"{ticksize}")
-    precio_final = (Decimal(f"{price}")*precision)/precision
-    precide = precio_final.quantize(Decimal(f"{1/precision}"),rounding=ROUND_FLOOR)
-    operaciondec = (precide / tickdec).quantize(Decimal('1'), rounding=ROUND_FLOOR) * tickdec
-    result = float(operaciondec)
-
-    return result
+pprint.pprint(posiciones)
