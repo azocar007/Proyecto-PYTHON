@@ -27,7 +27,7 @@ if "." in datoscorrectos:
 else:
     datoscorrectos = 0
 print(datoscorrectos)
-"""
+
 
 opciones_de_exchanges = {
     "1": "BINANCE",
@@ -40,7 +40,7 @@ opciones_de_exchanges = {
 
 
 def seleccionar_opcionn(opciones: dict, mensaje: str):
-    """Función genérica para validar opciones de menú"""
+    ""Función genérica para validar opciones de menú""
     opciones_formateadas = "\n".join([f"{clave}: {valor}" for clave, valor in opciones.items()])
 
     while True:
@@ -53,7 +53,7 @@ exchange_seleccionado = seleccionar_opcionn(opciones_de_exchanges, "Seleccione e
 print(exchange_seleccionado)
 
 
-""" ESTA SECUENCIA DE CODIGO  DEBE EMPLEAR PARA CALCULAR LA CANTIDAD DE DECIMALES EN LAS MONEDAS Y LOS PRECIOS
+ESTA SECUENCIA DE CODIGO  DEBE EMPLEAR PARA CALCULAR LA CANTIDAD DE DECIMALES EN LAS MONEDAS Y LOS PRECIOS
         if modo_seleccion_volumen == "USDT":
             if (gestion_seleccionada == "UNIDIRECCIONAL SHORT" or gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT"):
                 cantidad_monedas_short = round(float(monto_de_sl) / entrada_short, cant_decimales_sl)
@@ -86,3 +86,45 @@ print(exchange_seleccionado)
                 cantidad_usdt_long = round(float(cantidad_monedas) * entrada_long, 2)
                 cantidad_usdt_short = round(float(cantidad_monedas) * entrada_short, 2)
 """
+
+import pprint
+import time
+from pybit.unified_trading import HTTP
+from decimal import Decimal, ROUND_DOWN, ROUND_FLOOR
+
+symbol = 'DOGEUSDT'  # Puedes ajustar el símbolo según tus necesidades
+stop_loss = 0  # Valor en USDT
+estado = False
+capital = 0
+
+session = HTTP(
+    testnet=True,
+    api_key= 'X2ubLN641kBWsqb0mm',
+    api_secret='rU5QWC2vUaOfpg9BPbdPZ5EPwcbNenLKr7tc'
+)
+# Extraer información de la moneda seleccionada
+inf_moneda = session.get_instruments_info(category="linear", symbol=symbol)
+pip_moneda = inf_moneda['result']['list'][0]['priceFilter']['tickSize']
+min_usdt = inf_moneda['result']['list'][0]['lotSizeFilter']['minNotionalValue']
+
+cant_decimales_precio = inf_moneda['result']['list'][0]['priceScale']
+
+pprint.pprint(inf_moneda)
+print("\nPip de la moneda: ", pip_moneda, type(pip_moneda))
+print("\nMínimo de USDT: ", min_usdt, type(min_usdt))
+print("\nCantidad de decimales en el precio: ", cant_decimales_precio, type(cant_decimales_precio))
+
+# Codigo para stop loss Gafas
+
+def qty_step(symbol, price):
+    step = session.get_instruments_info(category="linear", symbol=symbol)
+    ticksize = float(step['result']['list'][0]['priceFilter']['tickSize'])
+    scala_precio = int(step['result']['list'][0]['priceScale'])
+    precision = Decimal(f"{10**scala_precio}")
+    tickdec = Decimal(f"{ticksize}")
+    precio_final = (Decimal(f"{price}")*precision)/precision
+    precide = precio_final.quantize(Decimal(f"{1/precision}"),rounding=ROUND_FLOOR)
+    operaciondec = (precide / tickdec).quantize(Decimal('1'), rounding=ROUND_FLOOR) * tickdec
+    result = float(operaciondec)
+
+    return result

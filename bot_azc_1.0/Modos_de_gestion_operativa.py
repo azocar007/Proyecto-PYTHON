@@ -1,6 +1,8 @@
 ### MODOS DE GESTION OPERATIVA ###
 import pprint
 from Entrada_de_datos import entrada_de_datos
+from pybit.unified_trading import HTTP
+from decimal import Decimal, ROUND_DOWN, ROUND_FLOOR
 
 # Funciones anidades a la funciones LONG, SHORT y SNOW BALL para la gestión de volumen
 def gest_porcen_reentradas(monedas, porcentaje_vol, decimales_mon):
@@ -216,6 +218,11 @@ def cal_snow_ball(datos_calculados: dict):
 
     return list_reent_long, list_reent_short, vol_monedas, vol_acum, precios_prom_long, precios_prom_short, precios_stop_loss_long, precios_stop_loss_short
 
+# Adapta el precio al múltiplo de pips de la moneda del exchange
+def redondeo(precio, pip_precio):
+    precio_final = Decimal(precio).quantize(pip_precio, rounding=ROUND_FLOOR)
+    return float(precio_final)
+
 # Clase para la gestión de posiciones LONG
 class PosicionLong:
     # Variables de la clase
@@ -378,6 +385,7 @@ class PosicionLong:
         cantidad_decimales_precio
         """
         precio_sl = round((self.entrada_long - self.monto_de_sl / self.cantidad_monedas_long), self.cantidad_decimales_precio)
+        precio_sl = redondeo(precio_sl, self.valor_pips)
         return {"Volumen moneda total": self.cantidad_monedas_long,
                 "Precio de stop loss": precio_sl}
 
@@ -624,7 +632,7 @@ datos_de_entrada = {
             "cantidad_de_reentradas": 4,
             "cantidad_decimales_monedas": 0,
             "cantidad_decimales_precio": 4,
-            "valor_pips": 0.0001,
+            "valor_pips": "0.0001",
             "gestion_take_profit": "RATIO BENEFICIO/PERDIDA", # "% TAKE PROFIT" - "LCD (Carga y Descarga)"
             "ratio": 2
             }
