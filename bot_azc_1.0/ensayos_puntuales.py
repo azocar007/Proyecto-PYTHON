@@ -98,9 +98,9 @@ estado = False
 capital = 0
 
 session = HTTP(
-    testnet=True,
-    api_key= 'X2ubLN641kBWsqb0mm',
-    api_secret='rU5QWC2vUaOfpg9BPbdPZ5EPwcbNenLKr7tc'
+    testnet=False,
+    api_key= 'afP9FxyjC1LjvjdeF4',
+    api_secret= 'cTZmQJFSlqcB5uatrXniP5IZSac9Aafn63bL'
 )
 # Extraer información de la moneda seleccionada
 inf_moneda = session.get_instruments_info(category="linear", symbol=symbol)
@@ -114,6 +114,59 @@ cant_decimales_precio = inf_moneda['result']['list'][0]['priceScale']
 #print("\nMínimo de USDT: ", min_usdt, type(min_usdt))
 #print("\nCantidad de decimales en el precio: ", cant_decimales_precio, type(cant_decimales_precio))
 
-posiciones = session.get_positions(category="linear", symbol=symbol)
+balance = session.get_wallet_balance(accountType="UNIFIED")
+pprint.pprint(balance)
 
-pprint.pprint(posiciones)
+
+#posiciones = session.get_positions(category="linear", symbol=symbol)
+#pprint.pprint(posiciones)
+
+"""
+
+import requests
+import hmac
+import hashlib
+import time
+
+API_KEY = "MU5KpK70mXQjLRnNIP"
+API_SECRET = "zM0wDVIQe1eKjuUBvLGtGn9H9I6ssuTdcj9C"
+
+
+url = "https://api-testnet.bybit.com/v5/account/wallet-balance"
+timestamp = str(int(time.time() * 1000))
+params = {"accountType": "UNIFIED"}
+
+# Crear firma HMAC SHA256
+query_string = "&".join([f"{key}={value}" for key, value in sorted(params.items())])
+signature = hmac.new(API_SECRET.encode(), f"{timestamp}{API_KEY}{query_string}".encode(), hashlib.sha256).hexdigest()
+
+headers = {
+    "X-BYBIT-API-KEY": API_KEY,
+    "X-BYBIT-TIMESTAMP": timestamp,
+    "X-BYBIT-SIGN": signature
+}
+
+response = requests.get(url, headers=headers, params=params)
+
+# Imprimir respuesta completa
+print("Status Code:", response.status_code)
+print("Response Text:", response.text)
+
+
+import requests
+
+API_KEY = "MU5KpK70mXQjLRnNIP"
+
+url = "https://api-testnet.bybit.com/v5/account/wallet-balance"
+timestamp = str(int(time.time() * 1000))
+
+headers = {
+    "X-BYBIT-API-KEY": API_KEY,
+    "X-BYBIT-TIMESTAMP": timestamp
+}
+
+response = requests.get(url, headers=headers)
+
+print("Status Code:", response.status_code)
+print("Response Text:", response.text)
+"""
