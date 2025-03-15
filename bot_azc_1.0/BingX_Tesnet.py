@@ -14,13 +14,14 @@ BASE_URL = "https://open-api.bingx.com"
 
 # 📌 Parámetros requeridos
 timestamp = str(int(time.time() * 1000))
-params = f"timestamp={timestamp}"
+params = f"timestamp={timestamp}&tradeType=mock"  # 📌 Agregar tradeType=mock
 
 # 🔐 Generar la firma HMAC SHA256
 signature = hmac.new(API_SECRET.encode(), params.encode(), hashlib.sha256).hexdigest()
 
 # 🔗 URL final con firma
-url = f"{BASE_URL}/openApi/swap/v2/user/balance?{params}&signature={signature}"
+#url = f"{BASE_URL}/openApi/swap/v2/user/balance?{params}&signature={signature}"
+url = f"{BASE_URL}/openApi/swap/v2/trade/order/history?{params}&signature={signature}"
 
 # 📨 Headers para autenticación
 headers = {
@@ -31,5 +32,8 @@ headers = {
 response = requests.get(url, headers=headers)
 
 # 🔍 Ver resultado
-pprint.pprint({"Status Code:", response.status_code})
-pprint.pprint({"Response Text:", response.text})
+pprint.pprint(f"Status Code:, {response.status_code}")
+
+#pprint.pprint({"Response Text:", response.text})
+
+pprint.pprint(response.json())
