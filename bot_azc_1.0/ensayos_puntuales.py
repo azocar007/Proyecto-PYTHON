@@ -109,13 +109,13 @@ min_usdt = inf_moneda['result']['list'][0]['lotSizeFilter']['minNotionalValue']
 pip_moneda = inf_moneda['result']['list'][0]['lotSizeFilter']['minOrderQty']
 cant_decimales_precio = inf_moneda['result']['list'][0]['priceScale']
 
-#pprint.pprint(inf_moneda)
+pprint.pprint(inf_moneda)
 #print("\nPip de la moneda: ", pip_moneda, type(pip_moneda))
 #print("\nMínimo de USDT: ", min_usdt, type(min_usdt))
 #print("\nCantidad de decimales en el precio: ", cant_decimales_precio, type(cant_decimales_precio))
 
-balance = session.get_wallet_balance(accountType="UNIFIED")
-pprint.pprint(balance)
+#balance = session.get_wallet_balance(accountType="UNIFIED")
+#pprint.pprint(balance)
 
 
 #posiciones = session.get_positions(category="linear", symbol=symbol)
