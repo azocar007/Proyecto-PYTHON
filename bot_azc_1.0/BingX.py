@@ -116,27 +116,30 @@ class BingX:
         response = requests.get(url, headers=headers)
         data = response.json()
 
-        pprint.pprint({"DEBUG - Respuesta API completa": data})  # 🔍 Verifica si el activo aparece en la respuesta
+        #pprint.pprint({"DEBUG - Respuesta API completa": data})  # 🔍 Verifica si el activo aparece en la respuesta
 
-        if "data" not in data:
-            print("DEBUG - No se encontró la clave 'data' en la respuesta de la API")
-            return {"long": False, "short": False}
-        if not data["data"]:
-            print("DEBUG - La API devolvió una lista vacía, no hay posiciones abiertas.")
-            return {"long": False, "short": False}
+        long_position = {}
+        short_position = {}
 
-        position_status = {"long": False, "short": False}
+        if "data" not in data or not data["data"]:
+            print("DEBUG - No hay posiciones abiertas.")
+            return {"long": long_position, "short": short_position}
 
-        position = data["data"]
-        for position in data.get("data", []):
-            print("DEBUG - Símbolo en API:", position["symbol"], position["positionSide"], position["avgPrice"], position["positionAmt"]) # 🔍 Verifica cómo la API devuelve los símbolos de los activos
+        for position in data["data"]:
+            #pprint.pprint({"DEBUG - Datos de posición": position})  # 🔍 Verifica cómo la API devuelve los datos
             if position["symbol"] == symbol:
-                if position["positionSide"] == "LONG":
-                    position_status["long"] = True
-                elif position["positionSide"] == "SHORT":
-                    position_status["short"] = True
+                if position["positionSide"] == "LONG": #float(position.get("positionAmt", 0)) > 0 and 
+                    long_position = {
+                        "avgPrice": position.get("avgPrice", "N/A"),
+                        "positionAmt": position.get("positionAmt", "N/A")
+                    }
+                elif position["positionSide"] == "SHORT": #float(position.get("positionAmt", 0)) > 0 and 
+                    short_position = {
+                        "avgPrice": position.get("avgPrice", "N/A"),
+                        "positionAmt": position.get("positionAmt", "N/A")
+                    }
+        return {"long": long_position, "short": short_position}
 
-        return position_status
 
     """ METODOS PARA EJECUTAR OPERACIONES EN LA CUENTA """
 
@@ -220,59 +223,5 @@ if __name__ == "__main__":
     # Colocar una orden de compra
     #print("\nOrden limite:", bingx.place_limit_order(symbol, "SELL", 40, 0.16481, "SHORT"))
     #print("\nPosición abierta:", bingx.get_open_position(symbol))
-    print("\nPosición abierta:", bingx.get_open_position())
+    print("\nPosición abierta:", bingx.get_open_position(symbol))
 
-
-
-    """
-    'DEBUG - Respuesta API completa': {'code': 0,
-                                    'data': [{'availableAmt': '40',
-                                              'avgPrice': '0.16481',
-                                              'createTime': 1742308488000,
-                                              'currency': 'USDT',
-                                              'initialMargin': '0.3296',
-                                              'isolated': False,
-                                              'leverage': 20,
-                                              'liquidationPrice': 0,
-                                              'margin': '0.1387',
-                                              'markPrice': '0.16958',
-                                              'maxMarginReduction': '0.0000',
-                                              'onlyOnePosition': False,
-                                              'pnlRatio': '-0.5793',
-                                              'positionAmt': '40',
-                                              'positionId': '1902005772926275584',
-                                              'positionSide': 'SHORT',
-                                              'positionValue': '6.78337',
-                                              'realisedProfit': '0.0006',
-                                              'riskRate': '0.0022',
-                                              'symbol': 'DOGE-USDT',
-                                              'unrealizedProfit': '-0.1910',
-                                              'updateTime': 1742371214386},
-                                             {'availableAmt': '40',
-                                              'avgPrice': '0.16421',
-                                              'createTime': 1742307837000,
-                                              'currency': 'USDT',
-                                              'initialMargin': '0.3284',
-                                              'isolated': False,
-                                              'leverage': 20,
-                                              'liquidationPrice': 0,
-                                              'margin': '0.5434',
-                                              'markPrice': '0.16958',
-                                              'maxMarginReduction': '0.0000',
-                                              'onlyOnePosition': False,
-                                              'pnlRatio': '0.6545',
-                                              'positionAmt': '40',
-                                              'positionId': '1902003039821320192',
-                                              'positionSide': 'LONG',
-                                              'positionValue': '6.78337',
-                                              'realisedProfit': '-0.0052',
-                                              'riskRate': '0.0022',
-                                              'symbol': 'DOGE-USDT',
-                                              'unrealizedProfit': '0.2150',
-                                              'updateTime': 1742371214538}],
-                                    'msg': ''}}
-DEBUG - Símbolo en API: DOGE-USDT SHORT
-DEBUG - Símbolo en API: DOGE-USDT LONG
-
-Posición abierta: {'long': False, 'short': False}
-"""
