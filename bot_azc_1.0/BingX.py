@@ -140,6 +140,87 @@ class BingX:
                     }
         return {"long": long_position, "short": short_position}
 
+    # Metodo para obtener información de la ultima vela
+    def get_last_candle(self, symbol: str, interval: str = "1m"): # intervalos definidos: 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 8h, 12h, 1d, 3d, 1w, 1M
+        url = f"{self.base_url}/openApi/swap/v2/quote/klines?symbol={symbol}&interval={interval}&limit=2"
+        response = requests.get(url)
+        #data = response.json()
+        #return data["data"]
+        print("DEBUG - Código de estado:", response.status_code)  # Verificar si la solicitud es exitosa
+        print("DEBUG - Respuesta en texto:", response.text[:200])  # Ver los primeros 200 caracteres de la respuesta
+
+        if response.status_code != 200:
+            print("ERROR - La API devolvió un código de estado:", response.status_code)
+            return {"last_candle": {}, "previous_candle": {}}
+
+        try:
+            data = response.json()
+        except requests.exceptions.JSONDecodeError:
+            print("ERROR - No se pudo decodificar la respuesta JSON.")
+            return {"last_candle": {}, "previous_candle": {}}
+
+        if "data" not in data or len(data["data"]) < 2:
+            print("DEBUG - No se encontraron suficientes datos de velas.")
+            return {"last_candle": {}, "previous_candle": {}}
+
+        return {
+            "last_candle": data["data"][-1],
+            "previous_candle": data["data"][-2]
+        }
+
+    def get_last_candless(self, symbol: str, interval: str = "1m"):
+        """Obtiene la última y la penúltima vela del mercado."""
+        url = f"{self.base_url}/openApi/swap/v2/quote/klines?symbol={symbol}&interval={interval}&limit=2"
+        headers = {
+            "X-BX-APIKEY": self.api_key,
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        }
+        response = requests.get(url, headers=headers)
+        
+        print("DEBUG - Código de estado:", response.status_code)  # Verificar si la solicitud es exitosa
+        print("DEBUG - Respuesta en texto:", response.text[:200])  # Ver los primeros 200 caracteres de la respuesta
+        
+        if response.status_code != 200:
+            print("ERROR - La API devolvió un código de estado:", response.status_code)
+            return {"last_candle": {}, "previous_candle": {}}
+        
+        try:
+            data = response.json()
+        except requests.exceptions.JSONDecodeError:
+            print("ERROR - No se pudo decodificar la respuesta JSON.")
+            return {"last_candle": {}, "previous_candle": {}}
+        
+        if "data" not in data or len(data["data"]) < 2:
+            print("DEBUG - No se encontraron suficientes datos de velas.")
+            return {"last_candle": {}, "previous_candle": {}}
+        
+        return {
+            "last_candle": data["data"][-1],
+            "previous_candle": data["data"][-2]
+        }
+    
+
+    def get_last_candles(self, symbol: str, interval: str = "1m"): # intervalos definidos: 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 8h, 12h, 1d, 3d, 1w, 1M
+        url = f"{self.base_url}/openApi/swap/v2/quote/klines?symbol={symbol}&interval={interval}&limit=2"
+        response = requests.get(url)
+        data = response.json()
+        print("DEBUG - Respuesta API completa:", data)  # 🔍 Ver toda la respuesta de la API
+        if "data" not in data or len(data["data"]) < 2:
+            print("DEBUG - No se encontraron suficientes datos de velas.")
+            return {"last_candle": {}, "previous_candle": {}}
+
+        return {
+            "last_candle": data["data"][-1],
+            "previous_candle": data["data"][-2]
+        }
+
+    # Metodo para obtener el precio actual
+    def get_current_price(self, symbol: str):
+        url = f"{self.base_url}/openApi/swap/v2/quote/ticker/price?symbol={symbol}"
+        response = requests.get(url)
+        data = response.json()
+        return data["data"] #["price"]
+
 
     """ METODOS PARA EJECUTAR OPERACIONES EN LA CUENTA """
 
@@ -186,7 +267,7 @@ class BingX:
         return response.json()
 
     # Metodo para abrir una posicion market
-    def abrir_market(self, symbol: str, cantidad: float):
+    def abrir_market(self, symbol: str, cantidad: float): #Metodo copilot
         timestamp = str(int(time.time() * 1000))
         params = f"symbol={symbol}&side=BUY&positionSide=LONG&orderType=MARKET&quantity={cantidad}&timestamp={timestamp}&tradeType={self.trade_type}"
         signature = self._get_signature(params)
@@ -194,6 +275,23 @@ class BingX:
         headers = {"X-BX-APIKEY": self.api_key}
         response = requests.post(url, headers=headers)
         return response.json()
+
+    def place_market_order(self, symbol: str, side: str, position_side: str, quantity: float): #Metodo ChatGpt
+        timestamp = str(int(time.time() * 1000))
+        params = (
+            f"symbol={symbol}&side={side}&positionSide={position_side}&type=MARKET"
+            f"&quantity={quantity}&timestamp={timestamp}"
+        )
+        signature = self._get_signature(params)
+        url = f"{self.base_url}/openApi/swap/v2/trade/order?{params}&signature={signature}"
+        headers = {"X-BX-APIKEY": self.api_key}
+
+        print("DEBUG - URL de la petición:", url)  # 🔍 Verificar la URL final generada
+        response = requests.post(url, headers=headers)
+        data = response.json()
+
+        print("DEBUG - Respuesta API completa:", data)  # 🔍 Ver toda la respuesta de la API
+        return data
 
     # Metodo para cancelar una orden
     def cancel_order(self, symbol: str, order_id: str):
@@ -210,18 +308,22 @@ class BingX:
 if __name__ == "__main__":
     bingx = BingX()
     symbol = "DOGE-USDT"
-
+    # Obtener información de la cuenta
     #print("La moneda es:", symbol)
     #pprint.pprint({"contract": bingx.inf_moneda(symbol)})
     #print("Margen disponible:", bingx.get_balance()["data"]["balance"]["availableMargin"]) # Margen disponible para operar
-    #print("Paso mínimo de precio:", bingx.pip_precio(symbol))
+    #print("Pip del precio:", bingx.pip_precio(symbol))
     #print("Cantidad de decimales del precio:", bingx.cant_deci_precio(symbol))
-    #print("Monto mínimo moneda:", bingx.pip_moneda(symbol))
+    #print("Monto mínimo moneda (pip de moneda):", bingx.pip_moneda(symbol))
     #print("Monto mínimo USDT:", bingx.min_usdt(symbol))
     #print("Apalancamiento máximo:", bingx.max_apalancamiento(symbol))
-    
-    # Colocar una orden de compra
-    #print("\nOrden limite:", bingx.place_limit_order(symbol, "SELL", 40, 0.16481, "SHORT"))
     #print("\nPosición abierta:", bingx.get_open_position(symbol))
-    print("\nPosición abierta:", bingx.get_open_position(symbol))
+    #print("\nÚltima vela:", bingx.get_last_candles(symbol, "1m"))
+    #print("\nUltima vela:", bingx.get_last_candless(symbol, "1m"))
+    #print("Precio actual:", bingx.get_current_price(symbol))
+
+    # Ejecución de ordenes
+    #print("\nOrden limite:", bingx.place_limit_order(symbol, "SELL", 40, 0.16481, "SHORT"))
+    
+    #curl -H "X-BX-APIKEY: eQIiQ5BK4BGJJNgAce6QPN3iZRtjVUuo5NgVP2lnbe5xgywXr0pjP3x1tWaFnqVmavHXLRjFYOlg502XxkcKw" "https://open-api.bingx.com/openApi/swap/v2/user/balance"
 

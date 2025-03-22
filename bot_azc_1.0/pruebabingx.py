@@ -6,14 +6,20 @@ import hmac
 from hashlib import sha256
 
 APIURL = "https://open-api.bingx.com"
-APIKEY = "" #"eQIiQ5BK4BGJJNgAce6QPN3iZRtjVUuo5NgVP2lnbe5xgywXr0pjP3x1tWaFnqVmavHXLRjFYOlg502XxkcKw"
-SECRETKEY = "" #"OkIfPdSZOG1nua7UI7bKfbO211T3eS21XVwBymT8zg84lAwmrjtcDnZKfAd7dPJVuATTUe3ibzUwaWxTuCLw"
+APIKEY = "eQIiQ5BK4BGJJNgAce6QPN3iZRtjVUuo5NgVP2lnbe5xgywXr0pjP3x1tWaFnqVmavHXLRjFYOlg502XxkcKw"
+SECRETKEY = "OkIfPdSZOG1nua7UI7bKfbO211T3eS21XVwBymT8zg84lAwmrjtcDnZKfAd7dPJVuATTUe3ibzUwaWxTuCLw"
 
+# Obtener velas
 def demo():
     payload = {}
-    path = '/openApi/swap/v2/quote/contracts'
+    path = '/openApi/swap/v3/quote/klines'
     method = "GET"
-    paramsMap = {}
+    paramsMap = {
+    "symbol": "DOGE-USDT",
+    "interval": "1h",
+    "limit": "1", # cantidad de velas
+    "startTime": "" #"1702717199998" # Fecha de inicio en milisegundos
+}
     paramsStr = parseParam(paramsMap)
     return send_request(method, path, paramsStr, payload)
 
@@ -36,14 +42,17 @@ def parseParam(paramsMap):
     sortedKeys = sorted(paramsMap)
     paramsStr = "&".join(["%s=%s" % (x, paramsMap[x]) for x in sortedKeys])
     if paramsStr != "": 
-     return paramsStr+"&timestamp="+str(int(time.time() * 1000))
+        return paramsStr+"&timestamp="+str(int(time.time() * 1000))
     else:
-     return paramsStr+"timestamp="+str(int(time.time() * 1000))
+        return paramsStr+"timestamp="+str(int(time.time() * 1000))
 
+trade_type: str = "contractPerpetual"
 
 if __name__ == '__main__':
     pprint.pprint({"demo": demo()})
-    #pprint.pprint({"contract": bingx.inf_moneda(symbol)})
+
+
+
 
 """
 {'demo': '{"code":0,"msg":"","data":[{
