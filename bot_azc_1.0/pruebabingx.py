@@ -25,13 +25,13 @@ def demo():
 
 def get_sign(api_secret, payload):
     signature = hmac.new(api_secret.encode("utf-8"), payload.encode("utf-8"), digestmod=sha256).hexdigest()
-    print("sign=" + signature)
+    #print("sign=" + signature)
     return signature
 
 
 def send_request(method, path, urlpa, payload):
     url = "%s%s?%s&signature=%s" % (APIURL, path, urlpa, get_sign(SECRETKEY, urlpa))
-    print(url)
+    #print(url)
     headers = {
         'X-BX-APIKEY': APIKEY,
     }
@@ -49,7 +49,8 @@ def parseParam(paramsMap):
 trade_type: str = "contractPerpetual"
 
 if __name__ == '__main__':
-    pprint.pprint({"demo": demo()})
+    print(type(demo()))
+    pprint.pprint({"Informaciòn de velas": demo()["data"]})
 
 
 
