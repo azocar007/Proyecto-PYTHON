@@ -1,82 +1,141 @@
 ### ENSAYOS DE LA API DE BING X CODIGOS DE LA PAGINA ###
 import pprint
+import websocket
+import json
+import threading
 import time
-import requests
-import hmac
-from hashlib import sha256
+import gzip
+import io
 
-APIURL = "https://open-api.bingx.com"
-APIKEY = "eQIiQ5BK4BGJJNgAce6QPN3iZRtjVUuo5NgVP2lnbe5xgywXr0pjP3x1tWaFnqVmavHXLRjFYOlg502XxkcKw"
-SECRETKEY = "OkIfPdSZOG1nua7UI7bKfbO211T3eS21XVwBymT8zg84lAwmrjtcDnZKfAd7dPJVuATTUe3ibzUwaWxTuCLw"
+class BingXWebSocket:
+    def __init__(self):
+        self.ws_connections = {}
+        self.price_data = {}
+        
+    def initialize_websocket(self, symbol):
+        symbol = symbol.upper()
+        
+        if symbol in self.ws_connections:
+            print(f"Ya existe una conexión WebSocket para {symbol}")
+            return
+            
+        def on_message(ws, message):
+            try:
+                # Intentar descomprimir el mensaje
+                with io.BytesIO(message) as buf:
+                    with gzip.GzipFile(fileobj=buf, mode='rb') as f:
+                        decompressed_msg = f.read().decode('utf-8')
+                data = json.loads(decompressed_msg)
+                
+                if 'data' in data and 'lastPrice' in data['data']:
+                    self.price_data[symbol] = float(data['data']['lastPrice'])
+                    print(f"\r[{symbol}] Precio: {self.price_data[symbol]}", end="", flush=True)
+                    
+            except gzip.BadGzipFile:
+                try:
+                    data = json.loads(message.decode('utf-8'))
+                    if 'data' in data and 'lastPrice' in data['data']:
+                        self.price_data[symbol] = float(data['data']['lastPrice'])
+                except Exception as e:
+                    print(f"Error procesando mensaje no comprimido: {e}")
+            except Exception as e:
+                print(f"Error procesando mensaje: {e}")
+                
+        def on_error(ws, error):
+            print(f"\nError en WebSocket {symbol}: {error}")
+            
+        def on_close(ws, close_status_code, close_msg):
+            print(f"\nConexión cerrada para {symbol}")
+            if symbol in self.ws_connections:
+                del self.ws_connections[symbol]
+                
+        def on_open(ws):
+            print(f"\nConexión WebSocket establecida para {symbol}")
+            subscribe_msg = {
+                "id": "1",
+                "reqType": "sub",
+                "dataType": f"{symbol}@trade"
+            }
+            ws.send(json.dumps(subscribe_msg))
+            
+        ws_url = "wss://open-api-swap.bingx.com/swap-market" #"wss://open-api-ws.bingx.com/market"
+        
+        ws = websocket.WebSocketApp(
+            ws_url,
+            on_open=on_open,
+            on_message=on_message,
+            on_error=on_error,
+            on_close=on_close
+        )
+        
+        self.ws_connections[symbol] = {
+            'ws': ws,
+            'thread': None,
+            'running': True
+        }
+        
+        def run_websocket():
+            while self.ws_connections.get(symbol, {}).get('running', False):
+                try:
+                    ws.run_forever(
+                        ping_interval=20,
+                        ping_timeout=10,
+                        origin="https://www.bingx.com"
+                    )
+                except Exception as e:
+                    print(f"Error en run_forever: {e}")
+                time.sleep(5)
+                
+        thread = threading.Thread(target=run_websocket)
+        thread.daemon = True
+        self.ws_connections[symbol]['thread'] = thread
+        thread.start()
+        
+    def get_realtime_price(self, symbol):
+        symbol = symbol.upper()
+        if symbol not in self.ws_connections:
+            self.initialize_websocket(symbol)
+            time.sleep(1)
+        return self.price_data.get(symbol)
+        
+    def close_websocket(self, symbol):
+        symbol = symbol.upper()
+        if symbol in self.ws_connections:
+            self.ws_connections[symbol]['running'] = False
+            self.ws_connections[symbol]['ws'].close()
+            if self.ws_connections[symbol]['thread']:
+                self.ws_connections[symbol]['thread'].join(timeout=5)
+            del self.ws_connections[symbol]
+            if symbol in self.price_data:
+                del self.price_data[symbol]
+                
+    def close_all_websockets(self):
+        for symbol in list(self.ws_connections.keys()):
+            self.close_websocket(symbol)
 
-# Obtener velas
-def demo():
-    payload = {}
-    path = '/openApi/swap/v3/quote/klines'
-    method = "GET"
-    paramsMap = {
-    "symbol": "DOGE-USDT",
-    "interval": "1h",
-    "limit": "1", # cantidad de velas
-    "startTime": "" #"1702717199998" # Fecha de inicio en milisegundos
-}
-    paramsStr = parseParam(paramsMap)
-    return send_request(method, path, paramsStr, payload)
-
-def get_sign(api_secret, payload):
-    signature = hmac.new(api_secret.encode("utf-8"), payload.encode("utf-8"), digestmod=sha256).hexdigest()
-    #print("sign=" + signature)
-    return signature
-
-
-def send_request(method, path, urlpa, payload):
-    url = "%s%s?%s&signature=%s" % (APIURL, path, urlpa, get_sign(SECRETKEY, urlpa))
-    #print(url)
-    headers = {
-        'X-BX-APIKEY': APIKEY,
-    }
-    response = requests.request(method, url, headers=headers, data=payload)
-    return response.text
-
-def parseParam(paramsMap):
-    sortedKeys = sorted(paramsMap)
-    paramsStr = "&".join(["%s=%s" % (x, paramsMap[x]) for x in sortedKeys])
-    if paramsStr != "": 
-        return paramsStr+"&timestamp="+str(int(time.time() * 1000))
-    else:
-        return paramsStr+"timestamp="+str(int(time.time() * 1000))
-
-trade_type: str = "contractPerpetual"
-
-if __name__ == '__main__':
-    print(type(demo()))
-    pprint.pprint({"Informaciòn de velas": demo()["data"]})
-
-
-
-
-"""
-{'demo': '{"code":0,"msg":"","data":[{
-"contractId":"100",
-"symbol":"BTC-USDT",
-"size":"0.0001",
-"quantityPrecision":4,
-"pricePrecision":1,
-"feeRate":0.0005,
-"makerFeeRate":0.0002,
-"takerFeeRate":0.0005,
-"tradeMinLimit":0,
-"tradeMinQuantity":0.0001,
-"tradeMinUSDT":2,
-"currency":"USDT",
-"asset":"BTC",
-"status":1,
-"apiStateOpen":"true",
-"apiStateClose":"true",
-"ensureTrigger":true,
-"triggerFeeRate":"0.00050000",
-"brokerState":false,
-"launchTime":1586275200000,
-"maintainTime":0,
-"offTime":0}
-"""
+# Ejecución del programa
+if __name__ == "__main__":
+    print("Iniciando monitor de precios de BingX...")
+    
+    # 1. Crear instancia del WebSocket
+    bingx_ws = BingXWebSocket()
+    
+    # 2. Configurar los pares a monitorear
+    symbols = ["DOGE-USDT"]  # Puedes añadir más pares
+    
+    # 3. Iniciar las conexiones WebSocket
+    for symbol in symbols:
+        bingx_ws.initialize_websocket(symbol)
+    
+    try:
+        # 4. Bucle principal para mostrar precios
+        print("\nMonitoreando precios (presiona Ctrl+C para detener):")
+        while True:
+            time.sleep(1)
+            # Puedes usar get_realtime_price() en tu lógica de trading
+            
+    except KeyboardInterrupt:
+        # 5. Limpieza al salir
+        print("\nDeteniendo monitor de precios...")
+        bingx_ws.close_all_websockets()
+        print("Conexiones cerradas correctamente.")
