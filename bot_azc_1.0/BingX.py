@@ -17,7 +17,7 @@ class BingX:
         self.api_key = "eQIiQ5BK4BGJJNgAce6QPN3iZRtjVUuo5NgVP2lnbe5xgywXr0pjP3x1tWaFnqVmavHXLRjFYOlg502XxkcKw"
         self.api_secret = "OkIfPdSZOG1nua7UI7bKfbO211T3eS21XVwBymT8zg84lAwmrjtcDnZKfAd7dPJVuATTUe3ibzUwaWxTuCLw"
         self.base_url = "https://open-api.bingx.com"
-        self.ws_url = "wss://open-api-swap.bingx.com/swap-market" #"wss://open-api-ws.bingx.com/market"
+        self.ws_url = "wss://open-api-swap.bingx.com/swap-market" #"wss://open-api-v1.bingx.com/market" 
         self.trade_type = trade_type
         self.session = requests.Session()
         self.session.headers.update({
@@ -181,8 +181,13 @@ class BingX:
                     await websocket.send(json.dumps(payload))
                     print(f"📡 Conectado a WebSocket para {symbol}")
                     
+                    # Leer respuesta inicial del servidor
+                    init_response = await websocket.recv()
+                    print("🔍 Respuesta inicial del WebSocket:", init_response)
+                    
                     while True:
                         response = await websocket.recv()
+                        
                         # Intentar descomprimir si el mensaje está comprimido
                         try:
                             response = zlib.decompress(response, 16+zlib.MAX_WBITS).decode("utf-8")
@@ -203,7 +208,6 @@ class BingX:
             except Exception as e:
                 print(f"❌ Error en WebSocket: {e}. Reintentando en 5 segundos...")
                 await asyncio.sleep(5)
-
 
     """ METODOS PARA EJECUTAR OPERACIONES EN LA CUENTA """
 
@@ -292,7 +296,7 @@ if __name__ == "__main__":
     bingx = BingX()
     symbol = "DOGE-USDT"
     # Obtener información de la cuenta
-    print("La moneda es:", symbol)
+    #print("La moneda es:", symbol)
     #print("Balance de la cuenta:", bingx.get_balance()["availableMargin"]) # Margen disponible para operar
     #pprint.pprint({"Activo": symbol, "Información" : bingx.inf_moneda(symbol)})
     #print("Pip del precio:", bingx.pip_precio(symbol))
@@ -301,7 +305,7 @@ if __name__ == "__main__":
     #print("Monto mínimo USDT:", bingx.min_usdt(symbol))
     #print("Apalancamiento máximo:", bingx.max_apalancamiento(symbol))
     #print("\nPosición abierta:", bingx.get_open_position(symbol))
-    pprint.pprint({"Ultima vela cerrada del activo": bingx.get_last_candles(symbol, "5m")[1]})
+    #pprint.pprint({"Ultima vela cerrada del activo": bingx.get_last_candles(symbol, "5m")[1]})
     asyncio.run(bingx.get_price_stream(symbol))
     
 
