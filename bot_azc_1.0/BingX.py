@@ -180,27 +180,27 @@ class BingX:
                     }
                     await websocket.send(json.dumps(payload))
                     print(f"📡 Conectado a WebSocket para {symbol}")
-                    
+
                     # Leer respuesta inicial del servidor
                     init_response = await websocket.recv()
                     print("🔍 Respuesta inicial del WebSocket:", init_response)
-                    
+
                     while True:
                         response = await websocket.recv()
-                        
+
                         # Intentar descomprimir si el mensaje está comprimido
                         try:
                             response = zlib.decompress(response, 16+zlib.MAX_WBITS).decode("utf-8")
                         except Exception:
                             pass  # Si falla, asumimos que ya está en texto
-                        
+
                         try:
                             data = json.loads(response)
                             if "data" in data and "close" in data["data"]:
                                 print(f"💰 Precio actual de {symbol}: {data['data']['close']}")
                         except json.JSONDecodeError:
                             print("ERROR - No se pudo decodificar JSON, mensaje recibido:", response)
-                        
+
                         await asyncio.sleep(1)
             except websockets.exceptions.ConnectionClosedError:
                 print("⚠️ Conexión WebSocket cerrada. Reintentando en 5 segundos...")
