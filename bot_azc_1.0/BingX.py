@@ -1,13 +1,16 @@
 ### Modulo BingX ###
 import pprint
-import requests
 import time
 import hmac
 import hashlib
 import asyncio
-import websockets
 import json
-import zlib
+import gzip
+import io
+import websocket
+import requests
+
+
 
 # Definiendo la clase BingX
 class BingX:
@@ -151,7 +154,7 @@ class BingX:
         return {"long": long_position, "short": short_position}
 
     # Metodo para obtener información de la ultima vela
-    def get_last_candles(self, symbol: str, interval: str = "5m", limit: int = 2):
+    def get_last_candles(self, symbol: str = "BTC-USDT", interval: str = "1m", limit: int = 2):
         url = f"{self.base_url}/openApi/swap/v3/quote/klines?symbol={symbol}&interval={interval}&limit={limit}"
         response = self.session.get(url)
         if response.status_code != 200:
@@ -169,45 +172,56 @@ class BingX:
         return candles
 
     # Metodo para obtener el precio en tiempo real con websocket
-    async def get_price_stream(self, symbol: str):
-        while True:
+    def get_price_stream(self, symbol: str = "BTC-USDT", interval: str = "1m"):
+        # Valores validos para los intervalos: 1m - 3m - 5m - 15m - 30m - 1h - 2h - 4h - 6h - 8h - 12h - 1d - 3d - 1w - 1M
+        # Definir los datos de suscripción
+        channel = {
+            "id": "e745cd6d-d0f6-4a70-8d5a-043e4c741b40", # "price-stream"
+            "reqType": "sub",
+            "dataType": f"{symbol}@kline_{interval}"
+        }
+
+        def on_open(ws):
+            #Se ejecuta cuando se abre la conexión WebSocket
+            print(f"📡 Conectado a WebSocket para {symbol}")
+            ws.send(json.dumps(channel))
+            #print("✅ Suscrito a:", json.dumps(channel)) # Opcional
+
+        def on_message(ws, message):
+            #Se ejecuta cuando se recibe un mensaje desde el WebSocket
             try:
-                async with websockets.connect(self.ws_url, ping_interval=10) as websocket:
-                    payload = {
-                        "id": int(time.time()),
-                        "reqType": "sub",
-                        "dataType": f"market.{symbol}.ticker"
-                    }
-                    await websocket.send(json.dumps(payload))
-                    print(f"📡 Conectado a WebSocket para {symbol}")
-
-                    # Leer respuesta inicial del servidor
-                    init_response = await websocket.recv()
-                    print("🔍 Respuesta inicial del WebSocket:", init_response)
-
-                    while True:
-                        response = await websocket.recv()
-
-                        # Intentar descomprimir si el mensaje está comprimido
-                        try:
-                            response = zlib.decompress(response, 16+zlib.MAX_WBITS).decode("utf-8")
-                        except Exception:
-                            pass  # Si falla, asumimos que ya está en texto
-
-                        try:
-                            data = json.loads(response)
-                            if "data" in data and "close" in data["data"]:
-                                print(f"💰 Precio actual de {symbol}: {data['data']['close']}")
-                        except json.JSONDecodeError:
-                            print("ERROR - No se pudo decodificar JSON, mensaje recibido:", response)
-
-                        await asyncio.sleep(1)
-            except websockets.exceptions.ConnectionClosedError:
-                print("⚠️ Conexión WebSocket cerrada. Reintentando en 5 segundos...")
-                await asyncio.sleep(5)
+                # Descomprimir el mensaje si está en formato GZIP
+                compressed_data = gzip.GzipFile(fileobj=io.BytesIO(message), mode='rb')
+                decompressed_data = compressed_data.read().decode('utf-8')
+                # Convertir el mensaje en JSON
+                data = json.loads(decompressed_data)
+                precio = float(data["data"][0]["c"])
+                print("💰 Precio recibido:", data["dataType"], data["data"])
+                # Responder con 'Pong' si el servidor envía 'Ping'
+                if decompressed_data == "Ping":
+                    ws.send("Pong")
+                return precio
             except Exception as e:
-                print(f"❌ Error en WebSocket: {e}. Reintentando en 5 segundos...")
-                await asyncio.sleep(5)
+                print(f"❌ Error procesando el mensaje: {e}")
+
+        def on_error(ws, error):
+            #Manejo de errores en la conexión WebSocket
+            print(f"⚠️ Error en WebSocket: {error}")
+
+        def on_close(ws, close_status_code, close_msg):
+            #Se ejecuta cuando la conexión se cierra
+            print("🔴 Conexión WebSocket cerrada!")
+
+        # Iniciar la conexión WebSocket
+        ws = websocket.WebSocketApp(
+            self.ws_url,
+            on_open=on_open,
+            on_message=on_message,
+            on_error=on_error,
+            on_close=on_close,
+        )
+        ws.run_forever()
+
 
     """ METODOS PARA EJECUTAR OPERACIONES EN LA CUENTA """
 
@@ -295,6 +309,7 @@ class BingX:
 if __name__ == "__main__":
     bingx = BingX()
     symbol = "DOGE-USDT"
+    temporalidad = "1h"
     # Obtener información de la cuenta
     #print("La moneda es:", symbol)
     #print("Balance de la cuenta:", bingx.get_balance()["availableMargin"]) # Margen disponible para operar
@@ -304,10 +319,9 @@ if __name__ == "__main__":
     #print("Monto mínimo moneda (pip de moneda):", bingx.pip_moneda(symbol))
     #print("Monto mínimo USDT:", bingx.min_usdt(symbol))
     #print("Apalancamiento máximo:", bingx.max_apalancamiento(symbol))
-    print("\nPosición abierta:", bingx.get_open_position(symbol))
+    #print("\nPosición abierta:", bingx.get_open_position(symbol))
     #pprint.pprint({"Ultima vela cerrada del activo": bingx.get_last_candles(symbol, "5m")[1]})
-    asyncio.run(bingx.get_price_stream(symbol))
-    
+    #bingx.get_price_stream(symbol, temporalidad)
 
     # Ejecución de ordenes
     #print("\nOrden limite:", bingx.place_limit_order(symbol, "SELL", 40, 0.16481, "SHORT"))
