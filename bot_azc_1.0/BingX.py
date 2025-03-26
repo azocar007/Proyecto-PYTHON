@@ -304,7 +304,7 @@ if __name__ == "__main__":
     #print("Monto mínimo moneda (pip de moneda):", bingx.pip_moneda(symbol))
     #print("Monto mínimo USDT:", bingx.min_usdt(symbol))
     #print("Apalancamiento máximo:", bingx.max_apalancamiento(symbol))
-    #print("\nPosición abierta:", bingx.get_open_position(symbol))
+    print("\nPosición abierta:", bingx.get_open_position(symbol))
     #pprint.pprint({"Ultima vela cerrada del activo": bingx.get_last_candles(symbol, "5m")[1]})
     asyncio.run(bingx.get_price_stream(symbol))
     

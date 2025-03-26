@@ -4,18 +4,19 @@ import gzip
 import io
 
 class MyTradingClass:
-    def __init__(self, other_parameters):
+
+    def __init__(self):
         # ... Tu inicialización existente ...
         self.url = "wss://open-api-swap.bingx.com/swap-market"
         self.ws = None
         # ... Otras inicializaciones ...
 
-    def start_bingx_websocket(self, symbol, data_type):
+    def start_bingx_websocket(self, symbol: str = "BTC-USDT", data_type: str = "1m"):
         """Inicia la conexión WebSocket de BingX para un símbolo específico."""
         channel_data = {
-            "id": "tu_id_unico",  # Reemplaza con tu ID único
+            "id": "e745cd6d-d0f6-4a70-8d5a-043e4c741b40",  # Reemplaza con tu ID único
             "reqType": "sub",
-            "dataType": f"{symbol}@{data_type}"
+            "dataType": f"{symbol}@kline_{data_type}"
         }
         self.channel_data = channel_data
 
@@ -27,9 +28,9 @@ class MyTradingClass:
 
         def on_message(ws, message):
             compressed_data = gzip.GzipFile(fileobj=io.BytesIO(message), mode='rb')
-            decompressed_data = compressed_data.read()
-            utf8_data = decompressed_data.decode('utf-8')
-            print(utf8_data)  # Mensaje recibido
+            utf8_data = compressed_data.read().decode('utf-8')
+            data = json.loads(utf8_data)
+            print("Datos del activo:", data["dataType"], data["data"]) #"Precio actual:", data["data"][0]["c"])  # Mensaje recibido
             if utf8_data == "Ping":
                 ws.send("Pong")
 
@@ -52,10 +53,13 @@ class MyTradingClass:
 
 # Ejemplo de uso:
 if __name__ == "__main__":
-    my_trading_instance = MyTradingClass("BTC-USDT")
+    my_trading_instance = MyTradingClass()
+    symbol = "DOGE-USDT"
+    temporalidad = "1h"
     # Para seguir ETH-USDT con velas de 1 minuto:
-    my_trading_instance.start_bingx_websocket("DOGE-USDT", "kline_1m")
+    #my_trading_instance.start_bingx_websocket("DOGE-USDT", "1h")
+    my_trading_instance.start_bingx_websocket(symbol, temporalidad)
     # Para seguir XRP-USDT con datos de ticker:
-    my_trading_instance.start_bingx_websocket("DOGE-USDT", "ticker")
-    
+    #my_trading_instance.start_bingx_websocket("DOGE-USDT", "ticker")
+
 #ARROJA EL DATO DEL PRECIO CON LOS DEMAS PARAMETROS Y ADMITE LA MODIFICACIÓN DEL ACTIVO COMO PARAMETRO AL LLAMAR EL METODO DE LA CLASE
