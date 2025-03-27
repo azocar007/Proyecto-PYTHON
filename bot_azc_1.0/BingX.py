@@ -230,9 +230,10 @@ class BingX:
         timestamp = str(int(time.time() * 1000))
         params = f"symbol={symbol}&side=SELL&positionSide=LONG&orderType=STOP_MARKET&stopPrice={precio}&quantity={cantidad}&timestamp={timestamp}&tradeType={self.trade_type}"
         signature = self._get_signature(params)
-        url = f"{self.base_url}/openApi/swap/v2/order?{params}&signature={signature}"
+        url = f"{self.base_url}/openApi/swap/v2/trade/order?{params}&signature={signature}"
         headers = {"X-BX-APIKEY": self.api_key}
         response = requests.post(url, headers=headers)
+        print(response.json())
         return response.json()
 
     # Metodo para establecer un take profit
@@ -322,6 +323,7 @@ if __name__ == "__main__":
     #print("\nPosición abierta:", bingx.get_open_position(symbol))
     #pprint.pprint({"Ultima vela cerrada del activo": bingx.get_last_candles(symbol, "5m")[1]})
     #bingx.get_price_stream(symbol, temporalidad)
+    bingx.stop_loss(symbol, 40, 0.1561)
 
     # Ejecución de ordenes
     #print("\nOrden limite:", bingx.place_limit_order(symbol, "SELL", 40, 0.16481, "SHORT"))

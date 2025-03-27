@@ -1,64 +1,58 @@
 ### ENSAYOS DE LA API DE BING X CODIGOS DE LA PAGINA ###
 import pprint
-import websocket
 import json
-import threading
 import time
+import hmac
+from hashlib import sha256
+import websocket
+import threading
 import gzip
 import io
+import requests
 
 
-URL="wss://open-api-swap.bingx.com/swap-market"
-symbol = "BTC-USDT"
-CHANNEL= {
-    "id":"e745cd6d-d0f6-4a70-8d5a-043e4c741b40",
-    "reqType": "sub",
-    "dataType": "DOGE-USDT@kline_1m"}
-class Test(object):
 
-    def __init__(self):
-        self.url = URL
-        self.ws = None
+APIURL = "https://open-api.bingx.com"
+APIKEY = "eQIiQ5BK4BGJJNgAce6QPN3iZRtjVUuo5NgVP2lnbe5xgywXr0pjP3x1tWaFnqVmavHXLRjFYOlg502XxkcKw"
+SECRETKEY = "OkIfPdSZOG1nua7UI7bKfbO211T3eS21XVwBymT8zg84lAwmrjtcDnZKfAd7dPJVuATTUe3ibzUwaWxTuCLw"
 
-    def on_open(self, ws):
-        print('WebSocket connected')
-        subStr = json.dumps(CHANNEL)
-        ws.send(subStr)
-        print("Subscribed to :",subStr)
+def demo():
+    payload = {}
+    path = '/openApi/swap/v2/trade/order'
+    method = "POST"
+    paramsMap = {
+            "symbol": "DOGE-USDT",
+            "side": "SELL",
+            "positionSide": "LONG",
+            "type": "MARKET",
+            "quantity": 40,
+            "takeProfit": "{\"type\": \"TAKE_PROFIT_MARKET\", \"stopPrice\": 31968.0,\"price\": 31968.0,\"workingType\":\"MARK_PRICE\"}"
+            }
+    paramsStr = parseParam(paramsMap)
+    return send_request(method, path, paramsStr, payload)
 
-    def on_data(self, ws, string, type, continue_flag):
-        compressed_data = gzip.GzipFile(fileobj=io.BytesIO(string), mode='rb')
-        decompressed_data = compressed_data.read()
-        utf8_data = decompressed_data.decode('utf-8')
-        print(utf8_data)
+def get_sign(api_secret, payload):
+    signature = hmac.new(api_secret.encode("utf-8"), payload.encode("utf-8"), digestmod=sha256).hexdigest()
+    print("sign=" + signature)
+    return signature
 
-    def on_message(self, ws, message):
-        compressed_data = gzip.GzipFile(fileobj=io.BytesIO(message), mode='rb')
-        decompressed_data = compressed_data.read()
-        utf8_data = decompressed_data.decode('utf-8')
-        print(utf8_data)  #this is the message you need
-        if utf8_data == "Ping": # this is very important , if you receive 'Ping' you need to send 'Pong'
-            ws.send("Pong")
+def send_request(method, path, urlpa, payload):
+    url = "%s%s?%s&signature=%s" % (APIURL, path, urlpa, get_sign(SECRETKEY, urlpa))
+    print(url)
+    headers = {
+        'X-BX-APIKEY': APIKEY,
+    }
+    response = requests.request(method, url, headers=headers, data=payload)
+    return response.text
 
-    def on_error(self, ws, error):
-        print(error)
-
-    def on_close(self, ws, close_status_code, close_msg):
-        print('The connection is closed!')
-
-    def start(self):
-        self.ws = websocket.WebSocketApp(
-            self.url,
-            on_open=self.on_open,
-            on_message=self.on_message,
-            on_data=self.on_data,#
-            on_error=self.on_error,
-            on_close=self.on_close,
-        )
-        self.ws.run_forever()
+def parseParam(paramsMap):
+    sortedKeys = sorted(paramsMap)
+    paramsStr = "&".join(["%s=%s" % (x, paramsMap[x]) for x in sortedKeys])
+    if paramsStr != "":
+        return paramsStr+"&timestamp="+str(int(time.time() * 1000))
+    else:
+        return paramsStr+"timestamp="+str(int(time.time() * 1000))
 
 
-if __name__ == "__main__":
-    test = Test()
-    test.start()
-
+if __name__ == '__main__':
+    print("demo:", demo())
