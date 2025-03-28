@@ -3,7 +3,6 @@ import pprint
 import time
 import hmac
 import hashlib
-import asyncio
 import json
 import gzip
 import io
@@ -22,6 +21,7 @@ class BingX:
         self.base_url = "https://open-api.bingx.com"
         self.ws_url = "wss://open-api-swap.bingx.com/swap-market" #"wss://open-api-v1.bingx.com/market" 
         self.trade_type = trade_type
+        self.price = None
         self.session = requests.Session()
         self.session.headers.update({
             "X-BX-APIKEY": self.api_key,
@@ -195,12 +195,11 @@ class BingX:
                 decompressed_data = compressed_data.read().decode('utf-8')
                 # Convertir el mensaje en JSON
                 data = json.loads(decompressed_data)
-                precio = float(data["data"][0]["c"])
+                self.price = float(data["data"][0]["c"])
                 print("💰 Precio recibido:", data["dataType"], data["data"])
                 # Responder con 'Pong' si el servidor envía 'Ping'
                 if decompressed_data == "Ping":
                     ws.send("Pong")
-                return precio
             except Exception as e:
                 print(f"❌ Error procesando el mensaje: {e}")
 
@@ -311,6 +310,7 @@ if __name__ == "__main__":
     bingx = BingX()
     symbol = "DOGE-USDT"
     temporalidad = "1h"
+    ref = 0.1800
     # Obtener información de la cuenta
     #print("La moneda es:", symbol)
     #print("Balance de la cuenta:", bingx.get_balance()["availableMargin"]) # Margen disponible para operar
@@ -322,8 +322,12 @@ if __name__ == "__main__":
     #print("Apalancamiento máximo:", bingx.max_apalancamiento(symbol))
     #print("\nPosición abierta:", bingx.get_open_position(symbol))
     #pprint.pprint({"Ultima vela cerrada del activo": bingx.get_last_candles(symbol, "5m")[1]})
-    #bingx.get_price_stream(symbol, temporalidad)
-    bingx.stop_loss(symbol, 40, 0.1561)
+    precio_actual = bingx.get_price_stream(symbol, temporalidad)
+    if precio_actual > ref:
+        print(True)
+    else:
+        print(False)
+    #bingx.stop_loss(symbol, 40, 0.1561)
 
     # Ejecución de ordenes
     #print("\nOrden limite:", bingx.place_limit_order(symbol, "SELL", 40, 0.16481, "SHORT"))

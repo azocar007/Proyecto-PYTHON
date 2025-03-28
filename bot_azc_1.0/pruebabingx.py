@@ -1,58 +1,95 @@
 ### ENSAYOS DE LA API DE BING X CODIGOS DE LA PAGINA ###
-import pprint
 import json
-import time
-import hmac
-from hashlib import sha256
-import websocket
-import threading
 import gzip
 import io
+import websocket
 import requests
+import threading
+import time
 
 
+class BingX:
+    def __init__(self):
+        self.ws_url = "wss://open-api-swap.bingx.com/swap-market"
+        self.last_price = None  # Almacenará el último precio recibido
 
-APIURL = "https://open-api.bingx.com"
-APIKEY = "eQIiQ5BK4BGJJNgAce6QPN3iZRtjVUuo5NgVP2lnbe5xgywXr0pjP3x1tWaFnqVmavHXLRjFYOlg502XxkcKw"
-SECRETKEY = "OkIfPdSZOG1nua7UI7bKfbO211T3eS21XVwBymT8zg84lAwmrjtcDnZKfAd7dPJVuATTUe3ibzUwaWxTuCLw"
+    def get_price_stream(self, symbol: str = "BTC-USDT", interval: str = "1m"):
+        channel = {
+            "id": "e745cd6d-d0f6-4a70-8d5a-043e4c741b40",
+            "reqType": "sub",
+            "dataType": f"{symbol}@kline_{interval}"
+        }
 
-def demo():
-    payload = {}
-    path = '/openApi/swap/v2/trade/order'
-    method = "POST"
-    paramsMap = {
-            "symbol": "DOGE-USDT",
-            "side": "SELL",
-            "positionSide": "LONG",
-            "type": "MARKET",
-            "quantity": 40,
-            "takeProfit": "{\"type\": \"TAKE_PROFIT_MARKET\", \"stopPrice\": 31968.0,\"price\": 31968.0,\"workingType\":\"MARK_PRICE\"}"
-            }
-    paramsStr = parseParam(paramsMap)
-    return send_request(method, path, paramsStr, payload)
+        def on_open(ws):
+            print(f"📡 Conectado a WebSocket para {symbol}")
+            ws.send(json.dumps(channel))
 
-def get_sign(api_secret, payload):
-    signature = hmac.new(api_secret.encode("utf-8"), payload.encode("utf-8"), digestmod=sha256).hexdigest()
-    print("sign=" + signature)
-    return signature
+        def on_message(ws, message):
+            try:
+                compressed_data = gzip.GzipFile(fileobj=io.BytesIO(message), mode='rb')
+                decompressed_data = compressed_data.read().decode('utf-8')
+                data = json.loads(decompressed_data)
 
-def send_request(method, path, urlpa, payload):
-    url = "%s%s?%s&signature=%s" % (APIURL, path, urlpa, get_sign(SECRETKEY, urlpa))
-    print(url)
-    headers = {
-        'X-BX-APIKEY': APIKEY,
-    }
-    response = requests.request(method, url, headers=headers, data=payload)
-    return response.text
+                if "data" in data and len(data["data"]) > 0:
+                    self.last_price = float(data["data"][0]["c"])
+                    print(f"💰 Último precio recibido: {self.last_price}")
 
-def parseParam(paramsMap):
-    sortedKeys = sorted(paramsMap)
-    paramsStr = "&".join(["%s=%s" % (x, paramsMap[x]) for x in sortedKeys])
-    if paramsStr != "":
-        return paramsStr+"&timestamp="+str(int(time.time() * 1000))
+                    # Ejecutar estrategia en tiempo real
+                    self.check_strategy(self.last_price)
+                    """ Aqui ocurre la activacón para aperturas de posiciones """
+
+            except Exception as e:
+                print(f"⚠️ Error procesando el mensaje: {e}")
+
+        def on_error(ws, error):
+            print(f"⚠️ Error en WebSocket: {error}")
+
+        def on_close(ws, close_status_code, close_msg):
+            print("🔴 Conexión WebSocket cerrada!")
+
+        ws = websocket.WebSocketApp(
+            self.ws_url,
+            on_open=on_open,
+            on_message=on_message,
+            on_error=on_error,
+            on_close=on_close,
+        )
+        ws.run_forever()
+
+    def check_strategy(self, last_price):
+        """
+        Aquí defines la lógica de trading.
+        :param last_price: Último precio recibido.
+        """
+        # Configurar un umbral de compra y venta
+        umbral_compra = 0.18800
+        umbral_venta = 0.19000
+
+        if last_price <= umbral_compra:
+            print("📉 Precio bajo detectado. Oportunidad de COMPRA 💰")
+            # Aquí puedes llamar a un método para abrir una orden de compra
+        elif last_price >= umbral_venta:
+            print("📈 Precio alto detectado. Oportunidad de VENTA 🔥")
+            # Aquí puedes llamar a un método para cerrar la operación
+
+    def start_websocket(self, symbol="DOGE-USDT"):
+        """
+        Ejecuta el WebSocket en un hilo separado para poder seguir ejecutando código.
+        """
+        thread = threading.Thread(target=self.get_price_stream, args=(symbol,))
+        thread.daemon = True  # Se cerrará automáticamente cuando termine el programa
+        thread.start()
+
+
+# 🔥 EJEMPLO DE USO
+bingx = BingX()
+bingx.start_websocket(symbol="DOGE-USDT")
+
+# Ahora el WebSocket está corriendo en segundo plano y podemos seguir ejecutando código
+while True:
+    time.sleep(5)  # Simula otras tareas mientras el WebSocket sigue corriendo
+    if bingx.last_price is not None:
+        print(f"🔄 Último precio disponible: {bingx.last_price}")
+        bingx.start_websocket(symbol="DOGE-USDT")
     else:
-        return paramsStr+"timestamp="+str(int(time.time() * 1000))
-
-
-if __name__ == '__main__':
-    print("demo:", demo())
+        print("⏳ Esperando datos de precio...")
