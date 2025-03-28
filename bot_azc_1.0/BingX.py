@@ -14,8 +14,12 @@ import requests
 # Definiendo la clase BingX
 class BingX:
 
+    # Iniciando variables del diccionario de entrada
+    #entrada_long: float = None
+    #entrada_short: float = None
+
     # Inicializa la API con las credenciales y el tipo de trading.
-    def __init__(self, entrada_long: float = None, entrada_short: float = None): # "mock" para trading simulado - contractPerpetual para trading - linearPerpetual para trading lineal
+    def __init__(self, dict ={}): #{"LONG": entrada_long, "SHORT": entrada_short}):
         self.api_key = "eQIiQ5BK4BGJJNgAce6QPN3iZRtjVUuo5NgVP2lnbe5xgywXr0pjP3x1tWaFnqVmavHXLRjFYOlg502XxkcKw"
         self.api_secret = "OkIfPdSZOG1nua7UI7bKfbO211T3eS21XVwBymT8zg84lAwmrjtcDnZKfAd7dPJVuATTUe3ibzUwaWxTuCLw"
         self.trade_type = "contractPerpetual"
@@ -29,8 +33,9 @@ class BingX:
         self.last_price = None
         self.ws = None
         self.ws_running = False  # Controla si el WebSocket está activo
-        self.entrada_long = entrada_long
-        self.entrada_short = entrada_short
+        self.dict = dict
+        self.entrada_long = self.dict["LONG"]
+        self.entrada_short = self.dict["SHORT"]
 
 
     """ METODOS PARA OBETENER INFORMACION DE LA CUENTA Y DE LAS MONEDAS """
@@ -115,9 +120,9 @@ class BingX:
                 return contract["tradeMinUSDT"]
         return None
 
-    # Metodo para obtener maximo apalancamiento
+    # Metodo para obtener maximo apalancamiento, por el momemnto no funciona
     def max_apalancamiento(self, symbol: str):
-        url = f"{self.base_url}/openApi/swap/v2/quote/contracts"
+        url = f"{self.base_url}/openApi/swap/v2/quote/contracts" #"/openApi/swap/v2/trade/leverage" 
         response = self.session.get(url)
         data = response.json()
         for contract in data.get("data", []):
@@ -133,7 +138,6 @@ class BingX:
         url = f"{self.base_url}/openApi/swap/v2/user/positions?{params}&signature={signature}"
         response = self.session.get(url)
         data = response.json()
-
         #pprint.pprint({"DEBUG - Respuesta API completa": data["data"]})  # 🔍 Verifica si el activo aparece en la respuesta
 
         long_position = {}
@@ -204,8 +208,7 @@ class BingX:
                     self.last_price = float(data["data"][0]["c"])
                     print(f"Inf. vela: {data["dataType"]}: {data["data"]}")
                     #print(f"💰 Precio actualizado: {self.last_price}")
-                    self.check_strategy(self.last_price) # Ejecutar estrategia en tiempo real
-                    """ Aqui ocurre la activacón para aperturas de posiciones """
+                    self.check_strategy(self.last_price) # Ejecuta la estrategia en tiempo real
 
             except Exception as e:
                 print(f"❌ Error procesando mensaje: {e}")
@@ -213,12 +216,12 @@ class BingX:
         def on_error(ws, error):
             print(f"⚠️ Error en WebSocket: {error}")
             self.ws_running = False  # Marcar WebSocket como inactivo
-            self.reconnect(symbol, interval)
+            self.__reconnect(symbol, interval)
 
         def on_close(ws, close_status_code, close_msg):
             print("🔴 Conexión WebSocket cerrada. Intentando reconectar...")
             self.ws_running = False  # Marcar WebSocket como inactivo
-            self.reconnect(symbol, interval)
+            self.__reconnect(symbol, interval)
 
         self.ws = websocket.WebSocketApp(
             self.ws_url,
@@ -227,10 +230,10 @@ class BingX:
             on_error=on_error,
             on_close=on_close,
         )
-        self.ws.run_forever()
+        self.ws.run_forever() # self.ws.run_forever(ping_interval=30)  # Envia Ping cada 30 segundos
 
     # Metodo para realizar la reconeción de la websocket
-    def reconnect(self, symbol: str = "BTC-USDT", interval: str = "1m"):
+    def __reconnect(self, symbol: str = "BTC-USDT", interval: str = "1m"):
         """ Intenta reconectar el WebSocket después de 5 segundos """
         time.sleep(5)
         print("♻️ Reintentando conexión...")
@@ -338,12 +341,13 @@ class BingX:
 if __name__ == "__main__":
     symbol = "DOGE-USDT"
     temporalidad = "1h"
-    pto_long = 0.1900
-    pto_short = 0.180
-
+    entradas = {
+        "LONG": 0.1900,
+        "SHORT": 0.180
+        }
 
     # Obtener información de la cuenta
-    bingx = BingX(pto_long, pto_short)
+    bingx = BingX(entradas)
     #print("Balance de la cuenta:", bingx.get_balance()["availableMargin"]) # Margen disponible para operar
     #pprint.pprint({"Activo": symbol, "Información" : bingx.inf_moneda(symbol)})
     #print("Pip del precio:", bingx.pip_precio(symbol))
@@ -354,20 +358,17 @@ if __name__ == "__main__":
     #print("\nPosición abierta:", bingx.get_open_position(symbol))
     #pprint.pprint({"Ultima vela cerrada del activo": bingx.get_last_candles(symbol, "5m")[1]})
     #bingx.stop_loss(symbol, 40, 0.1561)
-    #threading.Thread(target=bingx.start_websocket, args=(symbol, temporalidad)).start()
-    bingx.reconnect(symbol, temporalidad)
+    #bingx.start_websocket(symbol, temporalidad)
+    """
     while True:     # Bucle principal para monitorear el último precio sin abrir múltiples conexiones
         time.sleep(5)
         if bingx.last_price is not None:
             print(f"🔄 Último precio disponible: {bingx.last_price}")
         else:
             print("⏳ Esperando datos de precio...")
+    #"""
 
 
 
     # Ejecución de ordenes
     #print("\nOrden limite:", bingx.place_limit_order(symbol, "SELL", 40, 0.16481, "SHORT"))
-
-    #curl -H "X-BX-APIKEY: eQIiQ5BK4BGJJNgAce6QPN3iZRtjVUuo5NgVP2lnbe5xgywXr0pjP3x1tWaFnqVmavHXLRjFYOlg502XxkcKw" "https://open-api.bingx.com/openApi/swap/v2/user/balance"
-
-DOGE
