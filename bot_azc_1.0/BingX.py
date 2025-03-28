@@ -1,6 +1,7 @@
 ### Modulo BingX ###
 import pprint
 import time
+import threading
 import hmac
 import hashlib
 import json
@@ -10,23 +11,27 @@ import websocket
 import requests
 
 
-
 # Definiendo la clase BingX
 class BingX:
 
     # Inicializa la API con las credenciales y el tipo de trading.
-    def __init__(self, trade_type: str = "contractPerpetual"): # "mock" para trading simulado - contractPerpetual para trading - linearPerpetual para trading lineal
+    def __init__(self, entrada_long: float = None, entrada_short: float = None): # "mock" para trading simulado - contractPerpetual para trading - linearPerpetual para trading lineal
         self.api_key = "eQIiQ5BK4BGJJNgAce6QPN3iZRtjVUuo5NgVP2lnbe5xgywXr0pjP3x1tWaFnqVmavHXLRjFYOlg502XxkcKw"
         self.api_secret = "OkIfPdSZOG1nua7UI7bKfbO211T3eS21XVwBymT8zg84lAwmrjtcDnZKfAd7dPJVuATTUe3ibzUwaWxTuCLw"
-        self.base_url = "https://open-api.bingx.com"
-        self.ws_url = "wss://open-api-swap.bingx.com/swap-market" #"wss://open-api-v1.bingx.com/market" 
-        self.trade_type = trade_type
-        self.price = None
+        self.trade_type = "contractPerpetual"
         self.session = requests.Session()
         self.session.headers.update({
             "X-BX-APIKEY": self.api_key,
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
         })
+        self.base_url = "https://open-api.bingx.com"
+        self.ws_url = "wss://open-api-swap.bingx.com/swap-market"
+        self.last_price = None
+        self.ws = None
+        self.ws_running = False  # Controla si el WebSocket está activo
+        self.entrada_long = entrada_long
+        self.entrada_short = entrada_short
+
 
     """ METODOS PARA OBETENER INFORMACION DE LA CUENTA Y DE LAS MONEDAS """
 
@@ -172,54 +177,78 @@ class BingX:
         return candles
 
     # Metodo para obtener el precio en tiempo real con websocket
-    def get_price_stream(self, symbol: str = "BTC-USDT", interval: str = "1m"):
-        # Valores validos para los intervalos: 1m - 3m - 5m - 15m - 30m - 1h - 2h - 4h - 6h - 8h - 12h - 1d - 3d - 1w - 1M
-        # Definir los datos de suscripción
+    def start_websocket(self, symbol: str = "BTC-USDT", interval: str = "1m"):
+        """Inicia una conexión WebSocket evitando múltiples conexiones simultáneas"""
+        if self.ws_running:
+            print("⚠️ WebSocket ya está en ejecución, evitando conexión duplicada.")
+            return
+        self.ws_running = True  # Marcar WebSocket como activo
+
         channel = {
-            "id": "e745cd6d-d0f6-4a70-8d5a-043e4c741b40", # "price-stream"
+            "id": "e745cd6d-d0f6-4a70-8d5a-043e4c741b40",
             "reqType": "sub",
             "dataType": f"{symbol}@kline_{interval}"
         }
 
         def on_open(ws):
-            #Se ejecuta cuando se abre la conexión WebSocket
             print(f"📡 Conectado a WebSocket para {symbol}")
             ws.send(json.dumps(channel))
-            #print("✅ Suscrito a:", json.dumps(channel)) # Opcional
 
         def on_message(ws, message):
-            #Se ejecuta cuando se recibe un mensaje desde el WebSocket
             try:
-                # Descomprimir el mensaje si está en formato GZIP
                 compressed_data = gzip.GzipFile(fileobj=io.BytesIO(message), mode='rb')
                 decompressed_data = compressed_data.read().decode('utf-8')
-                # Convertir el mensaje en JSON
                 data = json.loads(decompressed_data)
-                self.price = float(data["data"][0]["c"])
-                print("💰 Precio recibido:", data["dataType"], data["data"])
-                # Responder con 'Pong' si el servidor envía 'Ping'
-                if decompressed_data == "Ping":
-                    ws.send("Pong")
+
+                if "data" in data:
+                    self.last_price = float(data["data"][0]["c"])
+                    print(f"Inf. vela: {data["dataType"]}: {data["data"]}")
+                    #print(f"💰 Precio actualizado: {self.last_price}")
+                    self.check_strategy(self.last_price) # Ejecutar estrategia en tiempo real
+                    """ Aqui ocurre la activacón para aperturas de posiciones """
+
             except Exception as e:
-                print(f"❌ Error procesando el mensaje: {e}")
+                print(f"❌ Error procesando mensaje: {e}")
 
         def on_error(ws, error):
-            #Manejo de errores en la conexión WebSocket
             print(f"⚠️ Error en WebSocket: {error}")
+            self.ws_running = False  # Marcar WebSocket como inactivo
+            self.reconnect(symbol, interval)
 
         def on_close(ws, close_status_code, close_msg):
-            #Se ejecuta cuando la conexión se cierra
-            print("🔴 Conexión WebSocket cerrada!")
+            print("🔴 Conexión WebSocket cerrada. Intentando reconectar...")
+            self.ws_running = False  # Marcar WebSocket como inactivo
+            self.reconnect(symbol, interval)
 
-        # Iniciar la conexión WebSocket
-        ws = websocket.WebSocketApp(
+        self.ws = websocket.WebSocketApp(
             self.ws_url,
             on_open=on_open,
             on_message=on_message,
             on_error=on_error,
             on_close=on_close,
         )
-        ws.run_forever()
+        self.ws.run_forever()
+
+    # Metodo para realizar la reconeción de la websocket
+    def reconnect(self, symbol: str = "BTC-USDT", interval: str = "1m"):
+        """ Intenta reconectar el WebSocket después de 5 segundos """
+        time.sleep(5)
+        print("♻️ Reintentando conexión...")
+        threading.Thread(target=self.start_websocket, args=(symbol, interval)).start()
+
+    # Estrategia de entrada al mercado
+    def check_strategy(self, last_price):
+        """
+        Aquí defines la lógica de trading.
+        :param last_price: Último precio recibido.
+        """
+        # Configurar un umbral de compra y venta
+        if last_price <= float(self.entrada_long):
+            print("📉 Precio bajo detectado. Oportunidad de COMPRA 💰")
+            # Aquí puedes llamar a un método para abrir una orden de compra
+        elif last_price >= float(self.entrada_short):
+            print("📈 Precio alto detectado. Oportunidad de VENTA 🔥")
+            # Aquí puedes llamar a un método para cerrar la operación
 
 
     """ METODOS PARA EJECUTAR OPERACIONES EN LA CUENTA """
@@ -307,12 +336,14 @@ class BingX:
 
 # Ejemplo de uso
 if __name__ == "__main__":
-    bingx = BingX()
     symbol = "DOGE-USDT"
     temporalidad = "1h"
-    ref = 0.1800
+    pto_long = 0.1900
+    pto_short = 0.180
+
+
     # Obtener información de la cuenta
-    #print("La moneda es:", symbol)
+    bingx = BingX(pto_long, pto_short)
     #print("Balance de la cuenta:", bingx.get_balance()["availableMargin"]) # Margen disponible para operar
     #pprint.pprint({"Activo": symbol, "Información" : bingx.inf_moneda(symbol)})
     #print("Pip del precio:", bingx.pip_precio(symbol))
@@ -322,15 +353,21 @@ if __name__ == "__main__":
     #print("Apalancamiento máximo:", bingx.max_apalancamiento(symbol))
     #print("\nPosición abierta:", bingx.get_open_position(symbol))
     #pprint.pprint({"Ultima vela cerrada del activo": bingx.get_last_candles(symbol, "5m")[1]})
-    precio_actual = bingx.get_price_stream(symbol, temporalidad)
-    if precio_actual > ref:
-        print(True)
-    else:
-        print(False)
     #bingx.stop_loss(symbol, 40, 0.1561)
+    #threading.Thread(target=bingx.start_websocket, args=(symbol, temporalidad)).start()
+    bingx.reconnect(symbol, temporalidad)
+    while True:     # Bucle principal para monitorear el último precio sin abrir múltiples conexiones
+        time.sleep(5)
+        if bingx.last_price is not None:
+            print(f"🔄 Último precio disponible: {bingx.last_price}")
+        else:
+            print("⏳ Esperando datos de precio...")
+
+
 
     # Ejecución de ordenes
     #print("\nOrden limite:", bingx.place_limit_order(symbol, "SELL", 40, 0.16481, "SHORT"))
 
     #curl -H "X-BX-APIKEY: eQIiQ5BK4BGJJNgAce6QPN3iZRtjVUuo5NgVP2lnbe5xgywXr0pjP3x1tWaFnqVmavHXLRjFYOlg502XxkcKw" "https://open-api.bingx.com/openApi/swap/v2/user/balance"
 
+DOGE
