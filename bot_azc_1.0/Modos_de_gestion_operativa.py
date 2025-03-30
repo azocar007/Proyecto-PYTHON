@@ -637,41 +637,42 @@ datos_de_entrada = {
             "ratio": 2
             }
 #"""
+    # Empleando el modulo Entrada_de_datos
+if __name__ == "__main__":
+    
+    #Datos_calculados = PosicionLong(entrada_de_datos())
+    #Datos_calculados = PosicionShort(entrada_de_datos())
 
-# Empleando el modulo Entrada_de_datos
-#Datos_calculados = PosicionLong(entrada_de_datos())
-#Datos_calculados = PosicionShort(entrada_de_datos())
+    # Empleando el diccionario de ensayo
+    Datos_calculados_long= PosicionLong(datos_de_entrada)
+    Datos_calculados_short= PosicionShort(datos_de_entrada)
 
-# Empleando el diccionario de ensayo
-Datos_calculados_long= PosicionLong(datos_de_entrada)
-Datos_calculados_short= PosicionShort(datos_de_entrada)
+    # Long
+    #pprint.pprint(Datos_calculados_long.recompras())
+    #pprint.pprint(Datos_calculados_long.vol_monedas())
+    #pprint.pprint(Datos_calculados_long.take_profit())
+    #pprint.pprint(Datos_calculados_long.stop_loss())
+    #pprint.pprint(Datos_calculados_long.snow_ball())
 
-# Long
-#pprint.pprint(Datos_calculados_long.recompras())
-#pprint.pprint(Datos_calculados_long.vol_monedas())
-#pprint.pprint(Datos_calculados_long.take_profit())
-#pprint.pprint(Datos_calculados_long.stop_loss())
-#pprint.pprint(Datos_calculados_long.snow_ball())
+    # Short
+    print("\nDATOS DE CLASE LA SHORT:")
+    pprint.pprint(Datos_calculados_short.recompras())
+    #pprint.pprint(Datos_calculados_short.vol_monedas())
+    #pprint.pprint(Datos_calculados_short.take_profit())
+    #pprint.pprint(Datos_calculados_short.stop_loss())
+    #pprint.pprint(Datos_calculados_short.snow_ball())
 
-# Short
-print("\nDATOS DE CLASE LA SHORT:")
-pprint.pprint(Datos_calculados_short.recompras())
-#pprint.pprint(Datos_calculados_short.vol_monedas())
-#pprint.pprint(Datos_calculados_short.take_profit())
-#pprint.pprint(Datos_calculados_short.stop_loss())
-#pprint.pprint(Datos_calculados_short.snow_ball())
+    """ 
+    Para cambiar un dato de los diccionarios resultantes de la clase
+    debemos cambiar el valor de la variable en el diccionario de entrada y
+    volver a instanciar (ejecutar) la clase con el nuevo diccionario de entrada.
+    No es necesario crear una nueva variable para igualarla con algun valor extraido 
+    de los diccionarios resultantes de la clase.
+    """
 
-""" 
-Para cambiar un dato de los diccionarios resultantes de la clase
-debemos cambiar el valor de la variable en el diccionario de entrada y
-volver a instanciar (ejecutar) la clase con el nuevo diccionario de entrada.
-No es necesario crear una nueva variable para igualarla con algun valor extraido 
-de los diccionarios resultantes de la clase.
-"""
+    # nueva_entrada_short = Datos_calculados_short.recompras()["Precios promedios"][-2]
+    datos_de_entrada["entrada_short"] = Datos_calculados_short.recompras()["Precios promedios"][-1] #nueva_entrada_short
+    Datos_calculados_short = PosicionShort(datos_de_entrada)
 
-# nueva_entrada_short = Datos_calculados_short.recompras()["Precios promedios"][-2]
-datos_de_entrada["entrada_short"] = Datos_calculados_short.recompras()["Precios promedios"][-1] #nueva_entrada_short
-Datos_calculados_short = PosicionShort(datos_de_entrada)
-
-print("\nDatos de Snow ball SHORT:")
-pprint.pprint(Datos_calculados_short.snow_ball())
+    print("\nDatos de Snow ball SHORT:")
+    pprint.pprint(Datos_calculados_short.snow_ball())

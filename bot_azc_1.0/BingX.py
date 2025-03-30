@@ -162,6 +162,33 @@ class BingX:
                     }
         return {"long": long_position, "short": short_position}
 
+    # Metodo para monitorear las posiciones de un activo en tiempo.
+    def monitor_open_positions(self, symbol: str = ""):
+        MAX_REQUESTS_PER_MINUTE = 60
+        request_count = 0
+        start_time = time.time()
+
+        while True:
+            # Control de límite de peticiones por minuto
+            if request_count >= MAX_REQUESTS_PER_MINUTE:
+                elapsed_time = time.time() - start_time
+                if elapsed_time < 60:
+                    sleep_time = 60 - elapsed_time
+                    print(f"⏳ Esperando {sleep_time:.2f} segundos para evitar bloqueos...")
+                    time.sleep(sleep_time)
+                request_count = 0
+                start_time = time.time()
+
+            try:
+                positions = self.get_open_position(symbol)  # Llamada a la API
+                print(f"📊 Posiciones abiertas: {positions}")
+
+                request_count += 1
+            except Exception as e:
+                print(f"❌ Error obteniendo posiciones: {e}")
+
+            time.sleep(2)  # Intervalo de 5 segundos para no saturar la API
+
     # Metodo para obtener información de la ultima vela
     def get_last_candles(self, symbol: str = "BTC-USDT", interval: str = "1m", limit: int = 2):
         url = f"{self.base_url}/openApi/swap/v3/quote/klines?symbol={symbol}&interval={interval}&limit={limit}"
@@ -355,10 +382,11 @@ if __name__ == "__main__":
     #print("Monto mínimo moneda (pip de moneda):", bingx.pip_moneda(symbol))
     #print("Monto mínimo USDT:", bingx.min_usdt(symbol))
     #print("Apalancamiento máximo:", bingx.max_apalancamiento(symbol))
+
     #print("\nPosición abierta:", bingx.get_open_position(symbol))
+    #bingx.monitor_open_positions(symbol)
     #pprint.pprint({"Ultima vela cerrada del activo": bingx.get_last_candles(symbol, "5m")[1]})
-    #bingx.stop_loss(symbol, 40, 0.1561)
-    #bingx.start_websocket(symbol, temporalidad)
+    bingx.start_websocket(symbol, temporalidad)
     """
     while True:     # Bucle principal para monitorear el último precio sin abrir múltiples conexiones
         time.sleep(5)
@@ -367,8 +395,7 @@ if __name__ == "__main__":
         else:
             print("⏳ Esperando datos de precio...")
     #"""
-
-
+    #bingx.place_limit_order(symbol, "BUY", 40, 0.16201, "LONG")
 
     # Ejecución de ordenes
     #print("\nOrden limite:", bingx.place_limit_order(symbol, "SELL", 40, 0.16481, "SHORT"))
