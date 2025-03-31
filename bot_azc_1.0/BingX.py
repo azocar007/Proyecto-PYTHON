@@ -15,11 +15,8 @@ import requests
 class BingX:
 
     # Iniciando variables del diccionario de entrada
-    #entrada_long: float = None
-    #entrada_short: float = None
-
     # Inicializa la API con las credenciales y el tipo de trading.
-    def __init__(self, dict ={}): #{"LONG": entrada_long, "SHORT": entrada_short}):
+    def __init__(self, dict: dict):
         self.api_key = "eQIiQ5BK4BGJJNgAce6QPN3iZRtjVUuo5NgVP2lnbe5xgywXr0pjP3x1tWaFnqVmavHXLRjFYOlg502XxkcKw"
         self.api_secret = "OkIfPdSZOG1nua7UI7bKfbO211T3eS21XVwBymT8zg84lAwmrjtcDnZKfAd7dPJVuATTUe3ibzUwaWxTuCLw"
         self.trade_type = "contractPerpetual"
@@ -283,40 +280,28 @@ class BingX:
 
     """ METODOS PARA EJECUTAR OPERACIONES EN LA CUENTA """
 
-    # Metodo para establecer un stop loss
-    def stop_loss(self, symbol: str, cantidad: float, precio: float):
-        timestamp = str(int(time.time() * 1000))
-        params = f"symbol={symbol}&side=SELL&positionSide=LONG&orderType=STOP_MARKET&stopPrice={precio}&quantity={cantidad}&timestamp={timestamp}&tradeType={self.trade_type}"
-        signature = self._get_signature(params)
-        url = f"{self.base_url}/openApi/swap/v2/trade/order?{params}&signature={signature}"
-        headers = {"X-BX-APIKEY": self.api_key}
-        response = requests.post(url, headers=headers)
-        print(response.json())
-        return response.json()
 
-    # Metodo para establecer un take profit
-    def take_profit(self, symbol: str, cantidad: float, precio: float):
-        timestamp = str(int(time.time() * 1000))
-        params = f"symbol={symbol}&side=SELL&positionSide=LONG&orderType=TAKE_PROFIT_MARKET&stopPrice={precio}&quantity={cantidad}&timestamp={timestamp}&tradeType={self.trade_type}"
-        signature = self._get_signature(params)
-        url = f"{self.base_url}/openApi/swap/v2/order?{params}&signature={signature}"
-        headers = {"X-BX-APIKEY": self.api_key}
-        response = requests.post(url, headers=headers)
-        return response.json()
+    # Metodo para crear una posicion
+    def place_order(self, data: dict)-> dict:
 
-    # Metodo para crear una posicion limit
-    def place_limit_order(self, symbol: str, side: str, quantity: float, price: float, position_side: str):
+        symbol: str = data["symbol"]
+        side: str = data["side"]
+        quantity: float = data["quantity"]
+        price: float = data["price"]
+        position_side: str = data["position_side"]
+        tipe: str = data["type"]
+
         timestamp = str(int(time.time() * 1000))
         params = (
-            f"symbol={symbol}&side={side}&positionSide={position_side}&type=LIMIT"
+            f"symbol={symbol}&side={side}&positionSide={position_side}&type={tipe}"
             f"&quantity={quantity}&price={price}&timestamp={timestamp}&tradeType={self.trade_type}"
         )
         signature = self._get_signature(params)
         url = f"{self.base_url}/openApi/swap/v2/trade/order?{params}&signature={signature}"
         headers = {"X-BX-APIKEY": self.api_key}
         response = requests.post(url, headers=headers)
-        print("DEBUG - Código de estado:", response.status_code)
-        print("DEBUG - Respuesta API:", response.json())
+        #print("DEBUG - Código de estado:", response.status_code)
+        #print("DEBUG - Respuesta API:", response.json())
         """"
         Ejemplos de uso:
         positionSide="LONG" con side="BUY" → Abre una posición larga.
@@ -386,7 +371,7 @@ if __name__ == "__main__":
     #print("\nPosición abierta:", bingx.get_open_position(symbol))
     #bingx.monitor_open_positions(symbol)
     #pprint.pprint({"Ultima vela cerrada del activo": bingx.get_last_candles(symbol, "5m")[1]})
-    bingx.start_websocket(symbol, temporalidad)
+    #bingx.start_websocket(symbol, temporalidad)
     """
     while True:     # Bucle principal para monitorear el último precio sin abrir múltiples conexiones
         time.sleep(5)
@@ -397,5 +382,44 @@ if __name__ == "__main__":
     #"""
     #bingx.place_limit_order(symbol, "BUY", 40, 0.16201, "LONG")
 
+    # Diccionario de datos para la orden
+    data = {
+        "symbol": "DOGE-USDT",
+        "side": "BUY",
+        "position_side": "LONG",
+        "quantity": 40,
+        "price": 0.16481,
+        "type": "LIMIT"
+    }
+
     # Ejecución de ordenes
-    #print("\nOrden limite:", bingx.place_limit_order(symbol, "SELL", 40, 0.16481, "SHORT"))
+    pprint.pprint({"Orden limite": bingx.place_order(data)})
+
+
+"""
+RESPUESTA DE LA API PARA UNA ORDEN LIMIT CREADA CORRECTAMENTE
+{'Orden limite': {'code': 0,
+                'data': {'order': {'activationPrice': 0,
+                                    'avgPrice': '0.00000',
+                                    'clientOrderID': '',
+                                    'clientOrderId': '',
+                                    'closePosition': '',
+                                    'orderID': '1906525481205977088',
+                                    'orderId': 1906525481205977088,  
+                                    'positionSide': 'LONG',
+                                    'price': 0.16481,
+                                    'priceRate': 0,
+                                    'quantity': 40,
+                                    'reduceOnly': False,
+                                    'side': 'BUY',
+                                    'status': 'NEW',
+                                    'stopGuaranteed': '',
+                                    'stopLoss': '',
+                                    'stopPrice': 0,
+                                    'symbol': 'DOGE-USDT',
+                                    'takeProfit': '',
+                                    'timeInForce': 'GTC',
+                                    'type': 'LIMIT',
+                                    'workingType': 'MARK_PRICE'}},
+                'msg': ''}}
+"""
