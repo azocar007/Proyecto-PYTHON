@@ -281,8 +281,8 @@ class BingX:
     """ METODOS PARA EJECUTAR OPERACIONES EN LA CUENTA """
 
 
-    # Metodo para crear una posicion
-    def place_order(self, data: dict)-> dict:
+    # Metodo para crear una posicion limit
+    def place_limit_market_order(self, data: dict)-> dict:
 
         symbol: str = data["symbol"]
         side: str = data["side"]
@@ -300,8 +300,8 @@ class BingX:
         url = f"{self.base_url}/openApi/swap/v2/trade/order?{params}&signature={signature}"
         headers = {"X-BX-APIKEY": self.api_key}
         response = requests.post(url, headers=headers)
-        #print("DEBUG - Código de estado:", response.status_code)
-        #print("DEBUG - Respuesta API:", response.json())
+        print("DEBUG - Código de estado:", response.status_code)
+        print("DEBUG - Respuesta API:", response.json())
         """"
         Ejemplos de uso:
         positionSide="LONG" con side="BUY" → Abre una posición larga.
@@ -312,31 +312,67 @@ class BingX:
         return response.json()
 
     # Metodo para abrir una posicion market
-    def abrir_market(self, symbol: str, cantidad: float): #Metodo copilot
+    def set_sl_tp(self, data: dict) -> dict:
+        """
+        Establece Stop Loss (SL) y Take Profit (TP) en una orden abierta.
+
+        Parámetros en `data`:
+        - symbol (str): Activo a operar (ej: "DOGE-USDT").
+        - position_side (str): "LONG" o "SHORT".
+        - stop_loss (float): Precio para Stop Loss (opcional).
+        - take_profit (float): Precio para Take Profit (opcional).
+        - take_profit_type (str): "MARKET" o "LIMIT" (predeterminado: "MARKET").
+        - tp_price (float): Precio para Take Profit si es LIMIT (opcional).
+        - quantity (float): Cantidad de monedas a cerrar en TP/SL (opcional).
+
+        Retorna:
+        - dict con la respuesta de la API.
+        """
+
+        symbol: str = data["symbol"]
+        position_side: str = data["position_side"]
+        stop_loss: float = data.get("stop_loss", 0)
+        take_profit: float = data.get("take_profit", 0)
+        take_profit_type: str = data.get("take_profit_type", "MARKET")  # "MARKET" o "LIMIT"
+        tp_price: float = data.get("tp_price", 0)  # Precio TP si es LIMIT
+        quantity: float = data.get("quantity", 0)  # Cantidad a cerrar
+
         timestamp = str(int(time.time() * 1000))
-        params = f"symbol={symbol}&side=BUY&positionSide=LONG&orderType=MARKET&quantity={cantidad}&timestamp={timestamp}&tradeType={self.trade_type}"
+
+        params = f"symbol={symbol}&positionSide={position_side}&timestamp={timestamp}&tradeType={self.trade_type}"
+
+        if stop_loss > 0:
+            sl_payload = {
+                "type": "STOP_MARKET",
+                "stopPrice": stop_loss,
+                "workingType": "MARK_PRICE"
+            }
+            if quantity > 0:
+                sl_payload["quantity"] = quantity
+            params += f"&stopLoss={json.dumps(sl_payload)}"
+
+        if take_profit > 0:
+            tp_payload = {
+                "type": f"TAKE_PROFIT_{take_profit_type}",
+                "stopPrice": take_profit,
+                "workingType": "MARK_PRICE"
+            }
+            if take_profit_type == "LIMIT" and tp_price > 0:
+                tp_payload["price"] = tp_price
+            if quantity > 0:
+                tp_payload["quantity"] = quantity
+            params += f"&takeProfit={json.dumps(tp_payload)}"
+
         signature = self._get_signature(params)
-        url = f"{self.base_url}/openApi/swap/v2/order?{params}&signature={signature}"
+        url = f"{self.base_url}/openApi/swap/v2/trade/order/algo?{params}&signature={signature}"
         headers = {"X-BX-APIKEY": self.api_key}
+
         response = requests.post(url, headers=headers)
+
+        print("DEBUG - Código de estado:", response.status_code)
+        print("DEBUG - Respuesta API:", response.json())
+
         return response.json()
-
-    def place_market_order(self, symbol: str, side: str, position_side: str, quantity: float): #Metodo ChatGpt
-        timestamp = str(int(time.time() * 1000))
-        params = (
-            f"symbol={symbol}&side={side}&positionSide={position_side}&type=MARKET"
-            f"&quantity={quantity}&timestamp={timestamp}"
-        )
-        signature = self._get_signature(params)
-        url = f"{self.base_url}/openApi/swap/v2/trade/order?{params}&signature={signature}"
-        headers = {"X-BX-APIKEY": self.api_key}
-
-        print("DEBUG - URL de la petición:", url)  # 🔍 Verificar la URL final generada
-        response = requests.post(url, headers=headers)
-        data = response.json()
-
-        print("DEBUG - Respuesta API completa:", data)  # 🔍 Ver toda la respuesta de la API
-        return data
 
     # Metodo para cancelar una orden
     def cancel_order(self, symbol: str, order_id: str):
@@ -393,33 +429,58 @@ if __name__ == "__main__":
     }
 
     # Ejecución de ordenes
-    pprint.pprint({"Orden limite": bingx.place_order(data)})
+    pprint.pprint({"Orden limite": bingx.place_limit_market_order(data)})
 
 
 """
 RESPUESTA DE LA API PARA UNA ORDEN LIMIT CREADA CORRECTAMENTE
 {'Orden limite': {'code': 0,
                 'data': {'order': {'activationPrice': 0,
-                                    'avgPrice': '0.00000',
-                                    'clientOrderID': '',
-                                    'clientOrderId': '',
-                                    'closePosition': '',
-                                    'orderID': '1906525481205977088',
-                                    'orderId': 1906525481205977088,  
-                                    'positionSide': 'LONG',
-                                    'price': 0.16481,
-                                    'priceRate': 0,
-                                    'quantity': 40,
-                                    'reduceOnly': False,
-                                    'side': 'BUY',
-                                    'status': 'NEW',
-                                    'stopGuaranteed': '',
-                                    'stopLoss': '',
-                                    'stopPrice': 0,
-                                    'symbol': 'DOGE-USDT',
-                                    'takeProfit': '',
-                                    'timeInForce': 'GTC',
-                                    'type': 'LIMIT',
-                                    'workingType': 'MARK_PRICE'}},
+                                'avgPrice': '0.00000',
+                                'clientOrderID': '',
+                                'clientOrderId': '',
+                                'closePosition': '',
+                                'orderID': '1906525481205977088',
+                                'orderId': 1906525481205977088,  
+                                'positionSide': 'LONG',
+                                'price': 0.16481,
+                                'priceRate': 0,
+                                'quantity': 40,
+                                'reduceOnly': False,
+                                'side': 'BUY',
+                                'status': 'NEW',
+                                'stopGuaranteed': '',
+                                'stopLoss': '',
+                                'stopPrice': 0,
+                                'symbol': 'DOGE-USDT',
+                                'takeProfit': '',
+                                'timeInForce': 'GTC',
+                                'type': 'LIMIT',
+                                'workingType': 'MARK_PRICE'}},
                 'msg': ''}}
+"""
+"""
+                data":{"order":{"orderId":1906862775624486912,
+                                "orderID":"1906862775624486912",
+                                "symbol":"DOGE-USDT",
+                                "positionSide":"LONG",
+                                "side":"BUY",
+                                "type":"LIMIT",
+                                "price":0.16481,
+                                "quantity":40,
+                                "stopPrice":0,
+                                "workingType":"MARK_PRICE",
+                                "clientOrderID":"",
+                                "clientOrderId":"",
+                                "timeInForce":"GTC",
+                                "priceRate":0,
+                                "stopLoss":"",
+                                "takeProfit":"",
+                                "reduceOnly":false,
+                                "activationPrice":0,
+                                "closePosition":"",
+                                "stopGuaranteed":"",
+                                "status":"NEW",
+                                "avgPrice":"0.00000"}}}'}
+
 """
