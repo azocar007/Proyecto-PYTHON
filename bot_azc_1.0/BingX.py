@@ -280,6 +280,20 @@ class BingX:
 
     """ METODOS PARA EJECUTAR OPERACIONES EN LA CUENTA """
 
+    # Metodo para generar la firma HMAC SHA256 requerida por la API. 
+    def _send_request(self, method: str, endpoint: str, params: dict) -> dict:
+        sorted_params = sorted(params.items())
+        param_str = "&".join([f"{k}={v}" for k, v in sorted_params])
+        timestamp = self._get_timestamp()
+        params_str = f"{param_str}&timestamp={timestamp}" if param_str else f"timestamp={timestamp}"
+
+        signature = self._get_signature(params_str)
+
+        url = f"{self.base_url}{endpoint}?{params_str}&signature={signature}"
+        headers = {"X-BX-APIKEY": self.api_key}
+
+        response = requests.request(method, url, headers=headers)
+        return response.json()
 
     # Metodo para crear una posicion limit
     def place_limit_market_order(self, data: dict)-> dict:
@@ -291,7 +305,7 @@ class BingX:
         position_side: str = data["position_side"]
         tipe: str = data["type"]
 
-        timestamp = str(int(time.time() * 1000))
+        timestamp = self._get_timestamp()
         params = (
             f"symbol={symbol}&side={side}&positionSide={position_side}&type={tipe}"
             f"&quantity={quantity}&price={price}&timestamp={timestamp}&tradeType={self.trade_type}"
@@ -311,68 +325,48 @@ class BingX:
         """
         return response.json()
 
-    # Metodo para abrir una posicion market
-    def set_sl_tp(self, data: dict) -> dict:
+    # Metodo para colocar el take profit
+    def set_take_profit(self, symbol: str, position_side: str, quantity: float,
+                        stop_price: float, price: float = None,
+                        working_type: str = "MARK_PRICE", order_type: str = "MARKET") -> dict:
         """
-        Establece Stop Loss (SL) y Take Profit (TP) en una orden abierta.
-
-        Parámetros en `data`:
-        - symbol (str): Activo a operar (ej: "DOGE-USDT").
-        - position_side (str): "LONG" o "SHORT".
-        - stop_loss (float): Precio para Stop Loss (opcional).
-        - take_profit (float): Precio para Take Profit (opcional).
-        - take_profit_type (str): "MARKET" o "LIMIT" (predeterminado: "MARKET").
-        - tp_price (float): Precio para Take Profit si es LIMIT (opcional).
-        - quantity (float): Cantidad de monedas a cerrar en TP/SL (opcional).
-
-        Retorna:
-        - dict con la respuesta de la API.
+        Coloca una orden de Take Profit
+        :param order_type: 'MARKET' o 'LIMIT'
         """
+        side = "SELL" if position_side == "LONG" else "BUY"
 
-        symbol: str = data["symbol"]
-        position_side: str = data["position_side"]
-        stop_loss: float = data.get("stop_loss", 0)
-        take_profit: float = data.get("take_profit", 0)
-        take_profit_type: str = data.get("take_profit_type", "MARKET")  # "MARKET" o "LIMIT"
-        tp_price: float = data.get("tp_price", 0)  # Precio TP si es LIMIT
-        quantity: float = data.get("quantity", 0)  # Cantidad a cerrar
+        params = {
+            "symbol": symbol,
+            "side": side,
+            "positionSide": position_side,
+            "type": "TAKE_PROFIT_MARKET" if order_type == "MARKET" else "TAKE_PROFIT",
+            "quantity": quantity,
+            "stopPrice": stop_price,
+            "workingType": working_type
+        }
+        if order_type == "LIMIT":
+            if not price:
+                raise ValueError("Se requiere precio para orden LIMIT")
+            params["price"] = price
 
-        timestamp = str(int(time.time() * 1000))
+        return self._send_request("POST", "/openApi/swap/v2/trade/order", params)
 
-        params = f"symbol={symbol}&positionSide={position_side}&timestamp={timestamp}&tradeType={self.trade_type}"
+    # Metodo para colocar el stop loss
+    def set_stop_loss(self, symbol: str, position_side: str, quantity: float,
+                        stop_price: float, working_type: str = "MARK_PRICE") -> dict:
+        side = "SELL" if position_side == "LONG" else "BUY"
 
-        if stop_loss > 0:
-            sl_payload = {
-                "type": "STOP_MARKET",
-                "stopPrice": stop_loss,
-                "workingType": "MARK_PRICE"
-            }
-            if quantity > 0:
-                sl_payload["quantity"] = quantity
-            params += f"&stopLoss={json.dumps(sl_payload)}"
+        params = {
+            "symbol": symbol,
+            "side": side,
+            "positionSide": position_side,
+            "type": "STOP_MARKET",
+            "quantity": quantity,
+            "stopPrice": stop_price,
+            "workingType": working_type
+        }
 
-        if take_profit > 0:
-            tp_payload = {
-                "type": f"TAKE_PROFIT_{take_profit_type}",
-                "stopPrice": take_profit,
-                "workingType": "MARK_PRICE"
-            }
-            if take_profit_type == "LIMIT" and tp_price > 0:
-                tp_payload["price"] = tp_price
-            if quantity > 0:
-                tp_payload["quantity"] = quantity
-            params += f"&takeProfit={json.dumps(tp_payload)}"
-
-        signature = self._get_signature(params)
-        url = f"{self.base_url}/openApi/swap/v2/trade/order/algo?{params}&signature={signature}"
-        headers = {"X-BX-APIKEY": self.api_key}
-
-        response = requests.post(url, headers=headers)
-
-        print("DEBUG - Código de estado:", response.status_code)
-        print("DEBUG - Respuesta API:", response.json())
-
-        return response.json()
+        return self._send_request("POST", "/openApi/swap/v2/trade/order", params)
 
     # Metodo para cancelar una orden
     def cancel_order(self, symbol: str, order_id: str):
@@ -415,7 +409,7 @@ if __name__ == "__main__":
             print(f"🔄 Último precio disponible: {bingx.last_price}")
         else:
             print("⏳ Esperando datos de precio...")
-    #"""
+    
     #bingx.place_limit_order(symbol, "BUY", 40, 0.16201, "LONG")
 
     # Diccionario de datos para la orden
@@ -427,10 +421,17 @@ if __name__ == "__main__":
         "price": 0.16481,
         "type": "LIMIT"
     }
-
+    
     # Ejecución de ordenes
     pprint.pprint({"Orden limite": bingx.place_limit_market_order(data)})
+    """
 
+    sl_response = bingx.set_stop_loss(
+        symbol="DOGE-USDT",
+        position_side="SHORT",
+        quantity=40,
+        stop_price=0.17920
+    )
 
 """
 RESPUESTA DE LA API PARA UNA ORDEN LIMIT CREADA CORRECTAMENTE
