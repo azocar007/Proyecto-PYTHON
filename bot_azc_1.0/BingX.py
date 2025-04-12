@@ -293,14 +293,15 @@ class BingX:
         headers = {"X-BX-APIKEY": self.api_key}
 
         response = requests.request(method, url, headers=headers)
-        data = response.json()
-        pprint.pprint({"DEBUG - Respuesta API": data["data"]["order"]})
+        #data = response.json()
+        #pprint.pprint({"DEBUG - Respuesta API": data})
 
         return response.json()
 
     # Metodo para colocar el take profit
     def set_take_profit(self, symbol: str, position_side: str, quantity: float,
                         stop_price: float, working_type: str = "CONTRACT_PRICE", order_type: str = "LIMIT") -> dict:
+
         side = "SELL" if position_side == "LONG" else "BUY"
 
         params = {
@@ -320,6 +321,7 @@ class BingX:
     # Metodo para colocar el stop loss
     def set_stop_loss(self, symbol: str, position_side: str, quantity: float,
                         stop_price: float, working_type: str = "CONTRACT_PRICE") -> dict:
+
         side = "SELL" if position_side == "LONG" else "BUY"
 
         params = {
@@ -337,6 +339,7 @@ class BingX:
     # Metodo para colocar una orden de mercado o limit
     def set_limit_market_order(self, symbol: str, position_side: str, quantity: float,
                         stop_price: float = None, working_type: str = "CONTRACT_PRICE", type: str = "MARKET") -> dict:
+
         side = "BUY" if position_side == "LONG" else "SELL"
 
         params = {
@@ -351,6 +354,45 @@ class BingX:
 
         return self._send_request("POST", "/openApi/swap/v2/trade/order", params)
 
+    # Metodo para obtener las ordenes abiertas
+    def set_current_open_orders(self, symbol: str, type: str = "LIMIT") -> dict:
+
+        params = {
+            "symbol": symbol,
+            "type": type,
+        }
+
+        data = self._send_request("GET", "/openApi/swap/v2/trade/openOrders", params)
+
+        long_ordersId = []
+        short_ordersId = []
+
+        for order in data.get("data", {}).get("orders", []):
+            if symbol and order.get("symbol") != symbol:
+                continue
+            if order.get("positionSide") == "LONG":
+                long_ordersId.append(order["orderId"])
+            elif order.get("positionSide") == "SHORT":
+                short_ordersId.append(order["orderId"])
+
+        print(f"🟢 Total órdenes LONG: {len(long_ordersId)}")
+        print(f"🔴 Total órdenes SHORT: {len(short_ordersId)}")
+
+        return pprint.pprint({
+            "long_orders": long_ordersId,
+            "short_orders": short_ordersId,
+            "long_total": len(long_ordersId),
+            "short_total": len(short_ordersId)
+        })
+
+    # Metodo para cancelar una orden
+    def set_cancel_order(self, symbol: str, order_id: int = None):
+        params = {
+            "orderId": order_id, #requerido
+            "symbol": symbol
+        }
+        return self._send_request("DELETE", "/openApi/swap/v2/trade/order", params)
+
     # Metodo para crear una posicion limit
     def place_limit_market_order(self, data: dict)-> dict:
 
@@ -361,7 +403,7 @@ class BingX:
         position_side: str = data["position_side"]
         tipe: str = data["type"]
 
-        timestamp = self._get_timestamp()
+        timestamp = str(int(time.time() * 1000))
         params = (
             f"symbol={symbol}&side={side}&positionSide={position_side}&type={tipe}"
             f"&quantity={quantity}&price={price}&timestamp={timestamp}&tradeType={self.trade_type}"
@@ -417,7 +459,7 @@ if __name__ == "__main__":
     #bingx.start_websocket(symbol, temporalidad)
 
     """
-
+    # Colocar SL y TP
     sl_response = bingx.set_stop_loss(
         symbol="DOGE-USDT",
         position_side="SHORT",
@@ -425,10 +467,8 @@ if __name__ == "__main__":
         stop_price=0.17920
     )
     
-    """
-
     # Colocar una orden de compra LIMIT
-    order_data = bingx.set_limit_market_order(
+    order_short = bingx.set_limit_market_order(
         symbol="DOGE-USDT",
         position_side="SHORT",
         quantity=40,
@@ -436,55 +476,17 @@ if __name__ == "__main__":
         type="LIMIT"
     )
 
-"""
-RESPUESTA DE LA API PARA UNA ORDEN LIMIT CREADA CORRECTAMENTE
-{'Orden limite': {'code': 0,
-                'data': {'order': {'activationPrice': 0,
-                                'avgPrice': '0.00000',
-                                'clientOrderID': '',
-                                'clientOrderId': '',
-                                'closePosition': '',
-                                'orderID': '1906525481205977088',
-                                'orderId': 1906525481205977088,  
-                                'positionSide': 'LONG',
-                                'price': 0.16481,
-                                'priceRate': 0,
-                                'quantity': 40,
-                                'reduceOnly': False,
-                                'side': 'BUY',
-                                'status': 'NEW',
-                                'stopGuaranteed': '',
-                                'stopLoss': '',
-                                'stopPrice': 0,
-                                'symbol': 'DOGE-USDT',
-                                'takeProfit': '',
-                                'timeInForce': 'GTC',
-                                'type': 'LIMIT',
-                                'workingType': 'MARK_PRICE'}},
-                'msg': ''}}
-"""
-"""
-                data":{"order":{"orderId":1906862775624486912,
-                                "orderID":"1906862775624486912",
-                                "symbol":"DOGE-USDT",
-                                "positionSide":"LONG",
-                                "side":"BUY",
-                                "type":"LIMIT",
-                                "price":0.16481,
-                                "quantity":40,
-                                "stopPrice":0,
-                                "workingType":"MARK_PRICE",
-                                "clientOrderID":"",
-                                "clientOrderId":"",
-                                "timeInForce":"GTC",
-                                "priceRate":0,
-                                "stopLoss":"",
-                                "takeProfit":"",
-                                "reduceOnly":false,
-                                "activationPrice":0,
-                                "closePosition":"",
-                                "stopGuaranteed":"",
-                                "status":"NEW",
-                                "avgPrice":"0.00000"}}}'}
+    order_long = bingx.set_limit_market_order(
+        symbol="DOGE-USDT",
+        position_side="LONG",
+        quantity=40,
+        stop_price=0.1400,
+        type="LIMIT"
+    )
+    """
+    
+    ordenes_abiertas = bingx.set_current_open_orders(symbol)
 
-"""
+    # Cerrar ordenes pendientes
+    #cerrar_ordenes = bingx.set_cancel_order(symbol)
+
