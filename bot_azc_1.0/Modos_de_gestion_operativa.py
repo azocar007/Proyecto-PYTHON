@@ -123,11 +123,13 @@ class PosicionLong:
         else:
             mensj = "Cantidad de entradas acorde a lo establecido"
         # Retorno de resultados
-        return {"Precios de reentradas": list_reentradas,
+        return {"positionSide": "LONG",
+                "type": "LIMIT",
+                "Prices": list_reentradas,
                 "Precios promedios": precios_prom,
                 "Precios de stop loss": precios_stop_loss,
                 "Precio de stop loss": precios_stop_loss[-1],
-                "Volumenes de monedas": vol_monedas,
+                "quantitys": vol_monedas,
                 "Volumen monedas total": vol_acum,
                 "Volumen USDT total": vol_usdt_total,
                 "Mensaje": mensj}
@@ -317,11 +319,13 @@ class PosicionShort: # Falta calcular el metodo de snow ball
         else:
             mensj = "Cantidad de entradas acorde a lo establecido"
         # Retorno de resultados
-        return {"Precios de reentradas": list_reentradas,
+        return {"positionSide": "SHORT",
+                "type": "LIMIT",
+                "prices": list_reentradas,
                 "Precios promedios": precios_prom,
                 "Precios de stop loss": precios_stop_loss,
                 "Precio de stop loss": precios_stop_loss[-1],
-                "Volumenes de monedas": vol_monedas,
+                "quantitys": vol_monedas,
                 "Volumen monedas total": vol_acum,
                 "Volumen USDT total": vol_usdt_total,
                 "Mensaje": mensj}

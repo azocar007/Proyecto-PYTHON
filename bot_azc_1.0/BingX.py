@@ -186,6 +186,46 @@ class BingX:
 
             time.sleep(2)  # Intervalo de 5 segundos para no saturar la API
 
+    # Metodo para obtener las ordenes abiertas
+    def get_current_open_orders(self, symbol: str, type: str = "LIMIT") -> dict:
+
+        params = {
+            "symbol": symbol,
+            "type": type,
+        }
+        data = self._send_request("GET", "/openApi/swap/v2/trade/openOrders", params)
+
+        long_ordersId = []
+        short_ordersId = []
+
+        for order in data.get("data", {}).get("orders", []):
+            if symbol and order.get("symbol") != symbol:
+                continue
+            if order.get("positionSide") == "LONG":
+                long_ordersId.append(order["orderId"])
+            elif order.get("positionSide") == "SHORT":
+                short_ordersId.append(order["orderId"])
+
+        print(f"🟢 Total órdenes LONG: {len(long_ordersId)}")
+        if len(long_ordersId) == 0:
+            print("No hay órdenes abiertas en LONG.")
+        else:
+            pprint.pprint({"long_orders": long_ordersId})
+
+        print(f"🔴 Total órdenes SHORT: {len(short_ordersId)}")
+        if len(short_ordersId) == 0:
+            print("No hay órdenes abiertas en SHORT.")
+        else:
+            pprint.pprint({"short_orders": short_ordersId})
+
+        return {
+            "symbol": symbol,
+            "long_orders": long_ordersId,
+            "short_orders": short_ordersId,
+            "long_total": len(long_ordersId),
+            "short_total": len(short_ordersId)
+        }
+
     # Metodo para obtener información de la ultima vela
     def get_last_candles(self, symbol: str = "BTC-USDT", interval: str = "1m", limit: int = 2):
         url = f"{self.base_url}/openApi/swap/v3/quote/klines?symbol={symbol}&interval={interval}&limit={limit}"
@@ -232,7 +272,7 @@ class BingX:
                     self.last_price = float(data["data"][0]["c"])
                     print(f"Inf. vela: {data["dataType"]}: {data["data"]}")
                     #print(f"💰 Precio actualizado: {self.last_price}")
-                    self.check_strategy(self.last_price) # Ejecuta la estrategia en tiempo real
+                    self._check_strategy(self.last_price) # Ejecuta la estrategia en tiempo real
 
             except Exception as e:
                 print(f"❌ Error procesando mensaje: {e}")
@@ -264,7 +304,7 @@ class BingX:
         threading.Thread(target=self.start_websocket, args=(symbol, interval)).start()
 
     # Estrategia de entrada al mercado
-    def check_strategy(self, last_price):
+    def _check_strategy(self, last_price):
         """
         Aquí defines la lógica de trading.
         :param last_price: Último precio recibido.
@@ -337,8 +377,15 @@ class BingX:
         return self._send_request("POST", "/openApi/swap/v2/trade/order", params)
 
     # Metodo para colocar una orden de mercado o limit
-    def set_limit_market_order(self, symbol: str, position_side: str, quantity: float,
-                        stop_price: float = None, working_type: str = "CONTRACT_PRICE", type: str = "MARKET") -> dict:
+    def _limit_market_order(self, symbol: str, position_side: str, quantity: float,
+                        price: float = None, working_type: str = "CONTRACT_PRICE", type: str = "MARKET") -> dict:
+        """"
+        Ejemplos de uso:
+        positionSide="LONG" con side="BUY" → Abre una posición larga.
+        positionSide="LONG" con side="SELL" → Cierra una posición larga.
+        positionSide="SHORT" con side="SELL" → Abre una posición corta.
+        positionSide="SHORT" con side="BUY" → Cierra una posición corta.
+        """
 
         side = "BUY" if position_side == "LONG" else "SELL"
 
@@ -348,90 +395,67 @@ class BingX:
             "positionSide": position_side,
             "type": type,
             "quantity": quantity,
-            "price": stop_price,
+            "price": price,
             "workingType": working_type,
         }
 
         return self._send_request("POST", "/openApi/swap/v2/trade/order", params)
 
-    # Metodo para obtener las ordenes abiertas
-    def set_current_open_orders(self, symbol: str, type: str = "LIMIT") -> dict:
-
-        params = {
-            "symbol": symbol,
-            "type": type,
-        }
-
-        data = self._send_request("GET", "/openApi/swap/v2/trade/openOrders", params)
-
-        long_ordersId = []
-        short_ordersId = []
-
-        for order in data.get("data", {}).get("orders", []):
-            if symbol and order.get("symbol") != symbol:
-                continue
-            if order.get("positionSide") == "LONG":
-                long_ordersId.append(order["orderId"])
-            elif order.get("positionSide") == "SHORT":
-                short_ordersId.append(order["orderId"])
-
-        print(f"🟢 Total órdenes LONG: {len(long_ordersId)}")
-        print(f"🔴 Total órdenes SHORT: {len(short_ordersId)}")
-
-        return pprint.pprint({
-            "long_orders": long_ordersId,
-            "short_orders": short_ordersId,
-            "long_total": len(long_ordersId),
-            "short_total": len(short_ordersId)
-        })
+    # Metodo para crear una posicion limit
+    def set_limit_market_order(self, data: dict)-> dict:
+        """ Datos del diccionario para armar las ordenes """
+        symbol: str = data["symbol"]
+        position_side: str = data["position_side"]
+        type: str = data["type"]
+        quantity: list = data["quantitys"]
+        price: list = data["prices"]
+        num_orders = 0
+        for quantity, price in zip(data["quantitys"], data["prices"]):
+            self._limit_market_order(
+                symbol=symbol,
+                position_side=position_side,
+                quantity=quantity,
+                price=price,
+                type=type
+            )
+            num_orders += 1
+            print(f"Orden {num_orders} enviada: {position_side} => {price} @ {quantity}")
+            time.sleep(1)  # Espera 1 segundo entre cada orden
+        return self.get_current_open_orders(symbol)
 
     # Metodo para cancelar una orden
-    def set_cancel_order(self, symbol: str, order_id: int = None):
+    def _cancel_order(self, symbol: str, order_id: int = None):
         params = {
             "orderId": order_id, #requerido
             "symbol": symbol
         }
+        print(f"Ordenid: {order_id} cancelada")
         return self._send_request("DELETE", "/openApi/swap/v2/trade/order", params)
 
-    # Metodo para crear una posicion limit
-    def place_limit_market_order(self, data: dict)-> dict:
+    # Metodo para cancelar todas las ordenes abiertas por positionSide
+    def set_cancel_order(self, symbol: str, positionSide: str = None):
 
-        symbol: str = data["symbol"]
-        side: str = data["side"]
-        quantity: float = data["quantity"]
-        price: float = data["price"]
-        position_side: str = data["position_side"]
-        tipe: str = data["type"]
+        if positionSide == "LONG":
+            if self.get_current_open_orders(symbol)["long_total"] == 0:
+                return
+            else:
+                orders = self.get_current_open_orders(symbol)["long_orders"]
+                for order in orders:
+                    self._cancel_order(symbol, order)
+                    time.sleep(1)
+        elif positionSide == "SHORT":
+            if self.get_current_open_orders(symbol)["short_total"] == 0:
+                return
+            else:
+                orders = self.get_current_open_orders(symbol)["short_orders"]
+                for order in orders:
+                    self._cancel_order(symbol, order)
+                    time.sleep(1)
+        else:
+            print("No se ha especificado un positionSide válido. Debe ser 'LONG' o 'SHORT'.")
 
-        timestamp = str(int(time.time() * 1000))
-        params = (
-            f"symbol={symbol}&side={side}&positionSide={position_side}&type={tipe}"
-            f"&quantity={quantity}&price={price}&timestamp={timestamp}&tradeType={self.trade_type}"
-        )
-        signature = self._get_signature(params)
-        url = f"{self.base_url}/openApi/swap/v2/trade/order?{params}&signature={signature}"
-        headers = {"X-BX-APIKEY": self.api_key}
-        response = requests.post(url, headers=headers)
-        print("DEBUG - Código de estado:", response.status_code)
-        print("DEBUG - Respuesta API:", response.json())
-        """"
-        Ejemplos de uso:
-        positionSide="LONG" con side="BUY" → Abre una posición larga.
-        positionSide="LONG" con side="SELL" → Cierra una posición larga.
-        positionSide="SHORT" con side="SELL" → Abre una posición corta.
-        positionSide="SHORT" con side="BUY" → Cierra una posición corta.
-        """
-        return response.json()
+        return self.get_current_open_orders(symbol)
 
-    # Metodo para cancelar una orden
-    def cancel_order(self, symbol: str, order_id: str):
-        timestamp = str(int(time.time() * 1000))
-        params = f"symbol={symbol}&orderId={order_id}&timestamp={timestamp}&tradeType={self.trade_type}"
-        signature = self._get_signature(params)
-        url = f"{self.base_url}/openApi/swap/v2/order?{params}&signature={signature}"
-        headers = {"X-BX-APIKEY": self.api_key}
-        response = requests.delete(url, headers=headers)
-        return response.json()
 
 
 # Ejemplo de uso
@@ -442,9 +466,18 @@ if __name__ == "__main__":
         "LONG": 0.1900,
         "SHORT": 0.180
         }
-
-    # Obtener información de la cuenta
+    datos = {
+        "symbol": symbol,
+        "position_side": "LONG",
+        "type": "LIMIT",
+        "quantitys": [40, 80, 160, 320],
+        "prices": [0.1500, 0.14950, 0.14900, 0.14850]
+        }
+    
     bingx = BingX(entradas)
+
+
+    """ Solicitar información de la cuenta y monedas """
     #print("Balance de la cuenta:", bingx.get_balance()["availableMargin"]) # Margen disponible para operar
     #pprint.pprint({"Activo": symbol, "Información" : bingx.inf_moneda(symbol)})
     #print("Pip del precio:", bingx.pip_precio(symbol))
@@ -453,10 +486,14 @@ if __name__ == "__main__":
     #print("Monto mínimo USDT:", bingx.min_usdt(symbol))
     #print("Apalancamiento máximo:", bingx.max_apalancamiento(symbol))
 
+    """ Operaciones en la cuenta """
     #print("\nPosición abierta:", bingx.get_open_position(symbol))
     #bingx.monitor_open_positions(symbol)
     #pprint.pprint({"Ultima vela cerrada del activo": bingx.get_last_candles(symbol, "5m")[1]})
     #bingx.start_websocket(symbol, temporalidad)
+    #ordenes_abiertas = bingx.set_current_open_orders(symbol)
+    #cerrar_ordenes = bingx.set_cancel_order(symbol, "LONG")
+    enviar_ordenes = bingx.set_limit_market_order(datos)
 
     """
     # Colocar SL y TP
@@ -485,8 +522,4 @@ if __name__ == "__main__":
     )
     """
     
-    ordenes_abiertas = bingx.set_current_open_orders(symbol)
-
-    # Cerrar ordenes pendientes
-    #cerrar_ordenes = bingx.set_cancel_order(symbol)
 
