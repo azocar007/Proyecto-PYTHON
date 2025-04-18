@@ -117,18 +117,54 @@ class BingX:
                 return contract["tradeMinUSDT"]
         return None
 
-    # Metodo para obtener maximo apalancamiento, por el momemnto no funciona
+    # Metodo para obtener y ajustar el maximo apalancamiento
     def max_apalancamiento(self, symbol: str):
-        url = f"{self.base_url}/openApi/swap/v2/quote/contracts" #"/openApi/swap/v2/trade/leverage" 
-        response = self.session.get(url)
-        data = response.json()
-        for contract in data.get("data", []):
-            if contract["symbol"] == symbol:
-                return contract.get("maxLeverage", "No disponible")
-        return "No disponible"
+
+        """ Función para obtener el apalancamiento máximo de un activo """
+        def get_leverage(symbol: str):
+            params = {
+                "symbol": symbol,
+            }
+            data = self._send_request("GET", "/openApi/swap/v2/trade/leverage", params) # devuelve un diccionario
+            #pprint.pprint({"DEBUG - Respuesta API": data}) # comprobar respuesta de API
+            maxlongleverage = data["data"]["maxLongLeverage"]
+            longleverage = data["data"]["longLeverage"]
+            maxshortleverage = data["data"]["maxShortLeverage"]
+            shortleverage = data["data"]["shortLeverage"]
+            print(f"Apalancamiento máximo 🟢 LONG: {maxlongleverage}, actual: {longleverage}")
+            print(f"Apalancamiento máximo 🔴 SHORT: {maxshortleverage}, actual: {shortleverage}")
+            return {
+                "maxlongleverage": maxlongleverage,
+                "longleverage": longleverage,
+                "maxshortleverage": maxshortleverage,
+                "shortleverage": shortleverage  
+            }
+
+        """ Función para setear el apalancamiento del activo """
+        def set_leverage(symbol: str, leverage: int, side: str):
+            params = {
+                "symbol": symbol,
+                "leverage": leverage,
+                "side": side
+            }
+            return self._send_request("POST", "/openApi/swap/v2/trade/leverage", params)
+
+        data = get_leverage(symbol)
+        maxlongleverage = data["maxlongleverage"]
+        longleverage = data["longleverage"]
+        maxshortleverage = data["maxshortleverage"]
+        shortleverage = data["shortleverage"]
+
+        if maxlongleverage == longleverage and maxshortleverage == shortleverage:
+            print("Apalancamiento ajustado a maximos valores.")
+        else:
+            print("Seteando a valores maximos permitidos...")
+            set_leverage(symbol, maxlongleverage, "LONG")
+            set_leverage(symbol, maxshortleverage, "SHORT")
+            get_leverage(symbol)
 
     # Metodo para conocer si existe una posicion abierta en LONG o SHORT
-    def get_open_position(self, symbol: str = ""):
+    def get_open_position(self, symbol: str = None):
         timestamp = self._get_timestamp()
         params = f"timestamp={timestamp}&tradeType={self.trade_type}"
         signature = self._get_signature(params)
@@ -160,7 +196,7 @@ class BingX:
         return {"long": long_position, "short": short_position}
 
     # Metodo para monitorear las posiciones de un activo en tiempo.
-    def monitor_open_positions(self, symbol: str = ""):
+    def monitor_open_positions(self, symbol: str = None, seg: int = 1, interval: str = "1m"):
         MAX_REQUESTS_PER_MINUTE = 60
         request_count = 0
         start_time = time.time()
@@ -177,14 +213,16 @@ class BingX:
                 start_time = time.time()
 
             try:
-                positions = self.get_open_position(symbol)  # Llamada a la API
-                print(f"📊 Posiciones abiertas: {positions}")
+                positions = self.get_open_position(symbol)
+                ult_vela = self.get_last_candles(symbol, interval)
+                print(f"📊 Posiciones abiertas: {positions}, cada {seg} segundos")
+                print(f"📈 Datos última vela cerrada: {ult_vela}\n")
 
                 request_count += 1
             except Exception as e:
                 print(f"❌ Error obteniendo posiciones: {e}")
 
-            time.sleep(2)  # Intervalo de 5 segundos para no saturar la API
+            time.sleep(seg)  # Intervalo de segundos para no saturar la API
 
     # Metodo para obtener las ordenes abiertas
     def get_current_open_orders(self, symbol: str, type: str = "LIMIT") -> dict:
@@ -227,7 +265,7 @@ class BingX:
         }
 
     # Metodo para obtener información de la ultima vela
-    def get_last_candles(self, symbol: str = "BTC-USDT", interval: str = "1m", limit: int = 2):
+    def get_last_candles(self, symbol: str, interval: str = "1m", limit: int = 1):
         url = f"{self.base_url}/openApi/swap/v3/quote/klines?symbol={symbol}&interval={interval}&limit={limit}"
         response = self.session.get(url)
         if response.status_code != 200:
@@ -239,13 +277,15 @@ class BingX:
             print("ERROR - No se pudo decodificar la respuesta JSON.")
             return []
         candles = data.get("data", [])
+        candles.insert(0, {"symbol": symbol, "temporalidad": interval})
         if not isinstance(candles, list) or len(candles) < limit:
             print("ERROR - No se encontraron suficientes datos de velas.")
             return []
         return candles
+        #return candles[1]["close"] # Retorna el ultimo precio comercializado del activo
 
     # Metodo para obtener el precio en tiempo real con websocket
-    def start_websocket(self, symbol: str = "BTC-USDT", interval: str = "1m"):
+    def start_websocket(self, symbol: str, interval: str = "1m"):
         """Inicia una conexión WebSocket evitando múltiples conexiones simultáneas"""
         if self.ws_running:
             print("⚠️ WebSocket ya está en ejecución, evitando conexión duplicada.")
@@ -271,7 +311,7 @@ class BingX:
                 if "data" in data:
                     self.last_price = float(data["data"][0]["c"])
                     print(f"Inf. vela: {data["dataType"]}: {data["data"]}")
-                    #print(f"💰 Precio actualizado: {self.last_price}")
+                    print(f"💰 Precio actualizado: {self.last_price}")
                     self._check_strategy(self.last_price) # Ejecuta la estrategia en tiempo real
 
             except Exception as e:
@@ -297,7 +337,7 @@ class BingX:
         self.ws.run_forever() # self.ws.run_forever(ping_interval=30)  # Envia Ping cada 30 segundos
 
     # Metodo para realizar la reconeción de la websocket
-    def __reconnect(self, symbol: str = "BTC-USDT", interval: str = "1m"):
+    def __reconnect(self, symbol: str, interval: str = "1m"):
         """ Intenta reconectar el WebSocket después de 5 segundos """
         time.sleep(5)
         print("♻️ Reintentando conexión...")
@@ -461,7 +501,7 @@ class BingX:
 # Ejemplo de uso
 if __name__ == "__main__":
     symbol = "DOGE-USDT"
-    temporalidad = "1h"
+    temporalidad = "1m"
     entradas = {
         "LONG": 0.1900,
         "SHORT": 0.180
@@ -473,7 +513,7 @@ if __name__ == "__main__":
         "quantitys": [40, 80, 160, 320],
         "prices": [0.1500, 0.14950, 0.14900, 0.14850]
         }
-    
+
     bingx = BingX(entradas)
 
 
@@ -484,16 +524,32 @@ if __name__ == "__main__":
     #print("Cantidad de decimales del precio:", bingx.cant_deci_precio(symbol))
     #print("Monto mínimo moneda (pip de moneda):", bingx.pip_moneda(symbol))
     #print("Monto mínimo USDT:", bingx.min_usdt(symbol))
-    #print("Apalancamiento máximo:", bingx.max_apalancamiento(symbol))
+    #bingx.max_apalancamiento(symbol)
 
     """ Operaciones en la cuenta """
     #print("\nPosición abierta:", bingx.get_open_position(symbol))
     #bingx.monitor_open_positions(symbol)
-    #pprint.pprint({"Ultima vela cerrada del activo": bingx.get_last_candles(symbol, "5m")[1]})
-    #bingx.start_websocket(symbol, temporalidad)
+    #pprint.pprint({"Ultima vela cerrada del activo": bingx.get_last_candles(symbol, "5m")})
+    bingx.start_websocket(symbol, temporalidad)
     #ordenes_abiertas = bingx.set_current_open_orders(symbol)
     #cerrar_ordenes = bingx.set_cancel_order(symbol, "LONG")
-    enviar_ordenes = bingx.set_limit_market_order(datos)
+    #enviar_ordenes = bingx.set_limit_market_order(datos)
+    """
+    # Crear los hilos
+    ws_thread = threading.Thread(target = bingx.start_websocket, args = (symbol, temporalidad), daemon = True)
+    pos_thread = threading.Thread(target = bingx.monitor_open_positions, args = (symbol), daemon = True)
+
+    # Iniciar los hilos
+    ws_thread.start()
+    pos_thread.start()
+
+    # Mantener el programa corriendo
+    try:
+        while True:
+            time.sleep(5)
+    except KeyboardInterrupt:
+        print("Finalizando ejecución.")
+    """
 
     """
     # Colocar SL y TP
@@ -521,5 +577,3 @@ if __name__ == "__main__":
         type="LIMIT"
     )
     """
-    
-
