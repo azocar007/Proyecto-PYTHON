@@ -1,7 +1,6 @@
 ### MODOS DE GESTION OPERATIVA ###
 import pprint
 from Entrada_de_datos import entrada_de_datos
-from pybit.unified_trading import HTTP
 from decimal import Decimal, ROUND_DOWN, ROUND_FLOOR
 
 # Funciones anidades a la funciones LONG, SHORT y SNOW BALL para la gestión de volumen
@@ -27,8 +26,10 @@ def gest_agresivo(precio, porcentaje_vol, vol_monedas, vol_usdt, decimales_mon, 
 
 # Adapta el precio al múltiplo de pips de la moneda del exchange
 def redondeo(valor: float, pip_valor: str) -> float:
-    valor_decimal = Decimal(str(valor))  # Convierte float a string antes de Decimal
-    pip_decimal = Decimal(pip_valor)
+    valor_str = str(valor)
+    pip_str = str(pip_valor)
+    valor_decimal = Decimal(valor_str)  # Convierte float a string antes de Decimal
+    pip_decimal = Decimal(pip_str)
     valor_final = valor_decimal.quantize(pip_decimal, rounding=ROUND_FLOOR)
     return float(valor_final)
 
@@ -429,7 +430,7 @@ class PosicionShort: # Falta calcular el metodo de snow ball
 
 # COMPROBACIÓN DEL MODULO
 if __name__ == "__main__":
-#""" # Diccionario de ensayo para comprobación sin la función entrada_de_datos
+    #""" # Diccionario de ensayo para comprobación sin la función entrada_de_datos
     datos_de_entrada = {
                 "gestion_seleccionada": "UNIDERECCIONAL SHORT" , # UNIDIRECCIONAL SHORT LONG - DOBLE TAP - SNOW BALL
                 "gestion_de_entrada": "LIMITE", # MERCADO - LIMITE - BBO
@@ -468,12 +469,12 @@ if __name__ == "__main__":
     #pprint.pprint(Datos_calculados_long.snow_ball())
 
     # Short
-    Datos_calculados_short= PosicionShort(datos_de_entrada)
+    #Datos_calculados_short= PosicionShort(datos_de_entrada)
     #print("\nDATOS DE CLASE LA SHORT:")
     #pprint.pprint(Datos_calculados_short.recompras())
     #pprint.pprint(Datos_calculados_short.vol_monedas())
     #pprint.pprint(Datos_calculados_short.take_profit())
-    pprint.pprint(Datos_calculados_short.stop_loss())
+    #pprint.pprint(Datos_calculados_short.stop_loss())
     #pprint.pprint(Datos_calculados_short.snow_ball())
 
     """ 
@@ -490,3 +491,11 @@ if __name__ == "__main__":
 
     #print("\nDatos de Snow ball SHORT:")
     #pprint.pprint(Datos_calculados_short.snow_ball())
+    
+    stop_price= 0.14448
+    stopprice= redondeo(stop_price, 0.00001)
+    print(f"Precio ajustado: {stopprice}")
+
+    quantity= 40
+    quanti= redondeo(quantity, 1)
+    print(f"Cantidad ajustada: {quanti}")
