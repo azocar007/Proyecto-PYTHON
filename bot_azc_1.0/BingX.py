@@ -207,17 +207,26 @@ class BingX:
             short_amt = float(posiciones["SHORT"].get("positionAmt", 0))
 
             if positionside == "LONG" and long_amt > 0:
-                if self.get_current_open_orders(symbol,"STOP_MARKET")["long_amt_orders"][0] == long_amt:
+                list_sl = self.get_current_open_orders(symbol,"STOP_MARKET")["long_amt_orders"]
+                print(list_sl, type(list_sl))
+                if list_sl[0] == long_amt:
                     print("🟢 Posición LONG ya tiene Stop Loss.\n")
                     break
 
-                elif self.get_current_open_orders(symbol,"STOP_MARKET")["long_amt_orders"][0] != long_amt:
+                elif list_sl[0] != long_amt:
                     self._cancel_order(symbol, self.get_current_open_orders(symbol,"STOP_MARKET")["long_orders"][0])
                     print("🟢 Posición LONG tiene Stop Loss incorrectos, cancelando...\n")
                     avg_price = float(posiciones["LONG"].get("avgPrice", 0))
                     stop_price = avg_price - self.monto_sl / long_amt
                     print(f"🟢 Colocando Stop Loss al LONG: {long_amt} @ {stop_price}")
                     self.set_stop_loss(symbol, positionside, long_amt, stop_price)
+                    break
+
+                elif list_sl == []:
+                    print("🟢 Posición LONG no tiene Stop Loss.\n")
+
+                else:
+                    print(list_sl, type(list_sl))
                     break
 
             elif positionside == "SHORT" and short_amt > 0:
@@ -300,8 +309,10 @@ class BingX:
 
         long_ordersId = []
         long_amt_ordersId = []
+        long_price_ordersId = []
         short_ordersId = []
         short_amt_ordersId = []
+        short_price_ordersId = []
 
         for order in data.get("data", {}).get("orders", []):
             if symbol and order.get("symbol") != symbol:
@@ -309,9 +320,11 @@ class BingX:
             if order.get("positionSide") == "LONG":
                 long_ordersId.append(order["orderId"])
                 long_amt_ordersId.append(float(order["origQty"]))
+                long_price_ordersId.append(float(order["stopPrice"]))
             elif order.get("positionSide") == "SHORT":
                 short_ordersId.append(order["orderId"])
                 short_amt_ordersId.append(float(order["origQty"]))
+                short_price_ordersId.append(float(order["stopPrice"]))
 
         if type == "STOP_MARKET":
             mensaje = "STOP LOSS"
@@ -326,13 +339,13 @@ class BingX:
         if len(long_ordersId) == 0:
             print("No hay órdenes abiertas en LONG.")
         else:
-            pprint.pprint({"long_orders": long_ordersId, "montos": long_amt_ordersId})
+            pprint.pprint({"long_ordersId": long_price_ordersId, "montos": long_amt_ordersId})
 
         print(f"🔴 {mensaje} SHORT: {len(short_ordersId)}")
         if len(short_ordersId) == 0:
             print("No hay órdenes abiertas en SHORT.")
         else:
-            pprint.pprint({"short_orders": short_ordersId, "montos": short_amt_ordersId})
+            pprint.pprint({"short_ordersId": short_price_ordersId, "montos": short_amt_ordersId})
 
         return {
             "symbol": symbol,
@@ -700,3 +713,4 @@ if __name__ == "__main__":
     print(f"Cantidad ajustada: {quanti}")
     print(f"Precio ajustado: {stopprice}")
     """
+
