@@ -189,35 +189,20 @@ class PosicionLong:
                 "Volumen monedas total" : vol_acum}
 
     # Metodo de stop loss
-    def stop_loss(self):
-        """
-        Se deben redefinir las variables: 
-        posicion_actual = COLOCAR LA FUNCIÓN QUE LLAMA LA POSICIÓN ACTUAL DE LA OPERACIÓN EN EL ACTIVO
-        monto_de_sl = self.monto_de_sl
-        cantidad_monedas_actual
-        cantidad_decimales_precio
-        """
-        precio_sl = self.entrada_long - self.monto_de_sl / self.cantidad_monedas_long
-        return {"Volumen moneda total": self.cantidad_monedas_long,
-                "Precio de stop loss": precio_sl}
+    def stop_loss(self, precio_prom: float, monto_sl: float, cantidad_monedas: float):
+        precio_sl = precio_prom - monto_sl / cantidad_monedas
+        return precio_sl
 
     # Metodo de take profit
-    def take_profit(self):
-        """
-        Se deben redefinir las variables: 
-        posicion_actual = COLOCAR LA FUNCIÓN QUE LLAMA LA POSICIÓN ACTUAL DE LA OPERACIÓN EN EL ACTIVO
-        monto_de_sl = self.monto_de_sl
-        cantidad_monedas_actual
-        cantidad_decimales_precio
-        """
-        if self.gestion_take_profit == "% TAKE PROFIT":
-            precio_tp = round((self.entrada_long * self.ratio/100 + self.entrada_long), self.cantidad_decimales_precio)
-            return {"Volumen moneda total": self.cantidad_monedas_long,
-                    "Precio de take profit": precio_tp}
-        elif self.gestion_take_profit == "RATIO BENEFICIO/PERDIDA":
-            precio_tp = round(abs(abs(self.entrada_long - self.entrada_stoploss) * self.ratio + self.entrada_long), self.cantidad_decimales_precio)
-            return {"Volumen monedas total": self.cantidad_monedas_short,
-                    "Precio de take profit": precio_tp}
+    def take_profit(self, gestion_take_profit: str, precio_prom: float, monto_sl: float, cantidad_monedas: float, ratio: float):
+        if gestion_take_profit == "% TAKE PROFIT":
+            precio_tp = precio_prom * ratio/100 + precio_prom
+            return precio_tp
+
+        elif gestion_take_profit == "RATIO BENEFICIO/PERDIDA":
+            precio_tp = abs(precio_prom - self.stop_loss(precio_prom, monto_sl, cantidad_monedas)) * ratio + precio_prom
+            return precio_tp
+
         else: # "LCD (Carga y Descarga)"
             pass
 
@@ -231,7 +216,7 @@ class PosicionLong:
 
 # Clase para la gestión de posiciones SHORT
 class PosicionShort: # Falta calcular el metodo de snow ball
-    # Variables de la clase 
+    # Variables de la clase
     def __init__(self, entrada_de_datos: dict):
         # Variables del diccionario de entrada de datos
         self.gestion_seleccionada = entrada_de_datos["gestion_seleccionada"] # UNIDIRECCIONAL SHORT LONG - DOBLE TAP - SNOW BALL - RATIO BENEFICIO/PERDIDA
@@ -384,36 +369,20 @@ class PosicionShort: # Falta calcular el metodo de snow ball
                 "Volumen monedas total" : vol_acum}
 
     # Metodo de stop loss
-    def stop_loss(self):
-        """
-        Se deben redefinir las variables: 
-        posicion_actual = COLOCAR LA FUNCIÓN QUE LLAMA LA POSICIÓN ACTUAL DE LA OPERACIÓN EN EL ACTIVO
-        monto_de_sl = self.monto_de_sl
-        cantidad_monedas_actual
-        cantidad_decimales_precio
-        """
-        precio_sl = round((self.entrada_short + self.monto_de_sl / self.cantidad_monedas_short), self.cantidad_decimales_precio)
-        precio_sl = redondeo(precio_sl, self.valor_pips)
-        return {"Volumen moneda total": self.cantidad_monedas_short,
-                "Precio de stop loss": precio_sl}
+    def stop_loss(self, precio_prom: float, monto_sl: float, cantidad_monedas: float):
+        precio_sl = precio_prom + monto_sl / cantidad_monedas
+        return precio_sl
 
     # Metodo de take profit
-    def take_profit(self):
-        """
-        Se deben redefinir las variables: 
-        posicion_actual = COLOCAR LA FUNCIÓN QUE LLAMA LA POSICIÓN ACTUAL DE LA OPERACIÓN EN EL ACTIVO
-        monto_de_sl = self.monto_de_sl
-        cantidad_monedas_actual
-        cantidad_decimales_precio
-        """
-        if self.gestion_take_profit == "% TAKE PROFIT":
-            precio_tp = round(abs(self.entrada_short * self.ratio/100 - self.entrada_short), self.cantidad_decimales_precio)
-            return {"Volumen moneda total": self.cantidad_monedas_short,
-                    "Precio de take profit": precio_tp}
-        elif self.gestion_take_profit == "RATIO BENEFICIO/PERDIDA":
-            precio_tp = round(abs(abs(self.entrada_short - self.entrada_stoploss) * self.ratio - self.entrada_short), self.cantidad_decimales_precio)
-            return {"Volumen monedas total": self.cantidad_monedas_short,
-                    "Precio de take profit": precio_tp}
+    def take_profit(self, gestion_take_profit: str, precio_prom: float, monto_sl: float, cantidad_monedas: float, ratio: float):
+        if gestion_take_profit == "% TAKE PROFIT":
+            precio_tp = precio_prom * ratio/100 - precio_prom
+            return precio_tp
+
+        elif gestion_take_profit == "RATIO BENEFICIO/PERDIDA":
+            precio_tp = abs(precio_prom - self.stop_loss(precio_prom, monto_sl, cantidad_monedas)) * ratio - precio_prom
+            return precio_tp
+
         else: # "LCD (Carga y Descarga)"
             pass
 

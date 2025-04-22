@@ -11,6 +11,30 @@ import io
 import websocket
 import requests
 
+dict = {
+    "gestion_seleccionada": "UNIDERECCIONAL SHORT" , # UNIDIRECCIONAL SHORT LONG - DOBLE TAP - SNOW BALL
+    "gestion_de_entrada": "LIMITE", # MERCADO - LIMITE - BBO
+    "entrada_long": 0.16421,
+    "entrada_short": 0.16481,
+    "porcentaje_dist_reentradas": 2,
+    "cantidad_usdt_long" : 6.71,
+    "cantidad_usdt_short" : 6.71,
+    "cantidad_monedas_long": 40,
+    "cantidad_monedas_short": 40,
+    "modo_seleccionado": "% DE REENTRADAS", # % DE REENTRADAS - MARTINGALA - AGRESIVO
+    "porcentaje_vol_reentrada": 50,
+    "monto_de_sl": 1.0,
+    "entrada_stoploss": 0.2400,
+    "cantidad_de_reentradas": 4,
+    "cantidad_decimales_monedas": 0,
+    "cantidad_decimales_precio": 5,
+    "valor_pips": "0.00001",
+    "gestion_take_profit": "RATIO BENEFICIO/PERDIDA", # "% TAKE PROFIT" - "LCD (Carga y Descarga)"
+    "ratio": 2
+    }
+
+PosLong = mgo.PosicionLong(dict)
+PosShort = mgo.PosicionShort(dict)
 
 # Definiendo la clase BingX
 class BingX:
@@ -36,6 +60,8 @@ class BingX:
         self.entrada_long = self.dict["LONG"]
         self.entrada_short = self.dict["SHORT"]
         self.position_opened_by_strategy = False  # Flag para control de entrada
+        self.ratio = self.dict["ratio"] if "ratio" in self.dict else 1
+        self.gestion_take_profit = self.dict["gestion_take_profit"] # RATIO BENEFICIO/PERDIDA, % TAKE PROFIT , LCD
 
 
 
@@ -212,7 +238,7 @@ class BingX:
             if not list_sl:
                 print("🟢 Posición LONG no tiene Stop Loss. Colocando...\n")
                 avg_price = float(posiciones["LONG"].get("avgPrice", 0))
-                stop_price = avg_price - self.monto_sl / long_amt # se puede definir con el modulo mgo
+                stop_price = PosLong.stop_loss(avg_price, self.monto_sl, long_amt)
                 self.set_stop_loss(symbol, positionside, long_amt, stop_price)
 
             elif list_sl[0] != long_amt:
@@ -220,7 +246,7 @@ class BingX:
                 long_order_id = orders["long_orders"][0]
                 self._cancel_order(symbol, long_order_id)
                 avg_price = float(posiciones["LONG"].get("avgPrice", 0))
-                stop_price = avg_price - self.monto_sl / long_amt
+                stop_price = PosLong.stop_loss(avg_price, self.monto_sl, long_amt)
                 self.set_stop_loss(symbol, positionside, long_amt, stop_price)
 
             else:
@@ -233,7 +259,7 @@ class BingX:
             if not list_sl:
                 print("🔴 Posición SHORT no tiene Stop Loss. Colocando...\n")
                 avg_price = float(posiciones["SHORT"].get("avgPrice", 0))
-                stop_price = avg_price + self.monto_sl / short_amt
+                stop_price = PosShort.stop_loss(avg_price, self.monto_sl, short_amt)
                 self.set_stop_loss(symbol, positionside, short_amt, stop_price)
 
             elif list_sl[0] != short_amt:
@@ -241,7 +267,7 @@ class BingX:
                 short_order_id = orders["short_orders"][0]
                 self._cancel_order(symbol, short_order_id)
                 avg_price = float(posiciones["SHORT"].get("avgPrice", 0))
-                stop_price = avg_price + self.monto_sl / short_amt
+                stop_price = PosShort.stop_loss(avg_price, self.monto_sl, short_amt)
                 self.set_stop_loss(symbol, positionside, short_amt, stop_price)
 
             else:
@@ -260,16 +286,16 @@ class BingX:
             if not list_tp:
                 print("🟢 No hay Take Profit en LONG. Colocando uno...\n")
                 avg_price = float(posiciones["LONG"].get("avgPrice", 0))
-                # tp_price = avg_price + (lógica para TP)
-                # self.set_take_profit(symbol, positionside, long_amt, tp_price)
+                tp_price = PosLong.take_profit(self.gestion_take_profit, avg_price, self.monto_sl, long_amt, self.ratio)
+                self.set_take_profit(symbol, positionside, long_amt, tp_price)
 
             elif list_tp[0] != long_amt:
                 print("🟢 Take Profit incorrecto en LONG. Reemplazando...\n")
                 long_tp_id = orders["long_orders"][0]
                 self._cancel_order(symbol, long_tp_id)
                 avg_price = float(posiciones["LONG"].get("avgPrice", 0))
-                # tp_price = avg_price + (lógica para TP)
-                # self.set_take_profit(symbol, positionside, long_amt, tp_price)
+                tp_price = PosLong.take_profit(self.gestion_take_profit, avg_price, self.monto_sl, long_amt, self.ratio)
+                self.set_take_profit(symbol, positionside, long_amt, tp_price)
 
             else:
                 print("🟢 Take Profit en LONG está correcto.\n")
@@ -281,16 +307,16 @@ class BingX:
             if not list_tp:
                 print("🔴 No hay Take Profit en SHORT. Colocando uno...\n")
                 avg_price = float(posiciones["SHORT"].get("avgPrice", 0))
-                # tp_price = avg_price - (lógica para TP)
-                # self.set_take_profit(symbol, positionside, short_amt, tp_price)
+                tp_price = PosShort.take_profit(self.gestion_take_profit, avg_price, self.monto_sl, short_amt, self.ratio)
+                self.set_take_profit(symbol, positionside, short_amt, tp_price)
 
             elif list_tp[0] != short_amt:
                 print("🔴 Take Profit incorrecto en SHORT. Reemplazando...\n")
                 short_tp_id = orders["short_orders"][0]
                 self._cancel_order(symbol, short_tp_id)
                 avg_price = float(posiciones["SHORT"].get("avgPrice", 0))
-                # tp_price = avg_price - (lógica para TP)
-                # self.set_take_profit(symbol, positionside, short_amt, tp_price)
+                tp_price = PosShort.take_profit(self.gestion_take_profit, avg_price, self.monto_sl, short_amt, self.ratio) 
+                self.set_take_profit(symbol, positionside, short_amt, tp_price)
 
             else:
                 print("🔴 Take Profit en SHORT está correcto.\n")
@@ -391,13 +417,13 @@ class BingX:
         if len(long_ordersId) == 0:
             print("No hay órdenes abiertas en LONG.")
         else:
-            pprint.pprint({"long_ordersId": long_price_ordersId, "montos": long_amt_ordersId})
+            print({"long_ordersId": long_price_ordersId, "montos": long_amt_ordersId})
 
         print(f"🔴 {mensaje} SHORT: {len(short_ordersId)}")
         if len(short_ordersId) == 0:
             print("No hay órdenes abiertas en SHORT.")
         else:
-            pprint.pprint({"short_ordersId": short_price_ordersId, "montos": short_amt_ordersId})
+            print({"short_ordersId": short_price_ordersId, "montos": short_amt_ordersId})
 
         return {
             "symbol": symbol,
@@ -532,8 +558,8 @@ class BingX:
         return response.json()
 
     # Metodo para colocar el take profit
-    def set_take_profit(self, symbol: str, position_side: str, quantity: float,
-                        stop_price: float, working_type: str = "CONTRACT_PRICE", order_type: str = "LIMIT") -> dict:
+    def set_take_profit(self, symbol: str, position_side: str, quantity: float, stop_price: float,
+                        working_type: str = "CONTRACT_PRICE", order_type: str = "LIMIT") -> dict:
         # Ajustando decimales
         stop_price = mgo.redondeo(stop_price, self.pip_precio(symbol))
         quantity = mgo.redondeo(quantity, self.pip_moneda(symbol))
@@ -664,11 +690,13 @@ class BingX:
 if __name__ == "__main__":
     symbol = "DOGE-USDT"
     temporalidad = "1m"
-    direccion = "SHORT" # LONG o SHORT
+    direccion = "LONG" # LONG o SHORT
     entradas = {
         "LONG": 80000,
         "SHORT": 90000,
-        "monto_sl": 1
+        "monto_sl": 2,
+        "gestion_take_profit": "RATIO BENEFICIO/PERDIDA",
+        "ratio": 2
         }
     datos = {
         "symbol": symbol,
@@ -692,7 +720,7 @@ if __name__ == "__main__":
 
     """ Operaciones en la cuenta """
     #print("\nPosición abierta:", bingx.get_open_position(symbol))
-    #bingx.monitor_open_positions(symbol, direccion)
+    bingx.monitor_open_positions(symbol, direccion)
     #pprint.pprint({"Ultima vela cerrada del activo": bingx.get_last_candles(symbol, "5m")})
     #bingx.start_websocket(symbol, temporalidad)
     #ordenes_abiertas = bingx.get_current_open_orders(symbol, "TAKE_PROFIT")
