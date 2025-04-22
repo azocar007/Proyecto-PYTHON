@@ -197,8 +197,7 @@ class PosicionLong:
         cantidad_monedas_actual
         cantidad_decimales_precio
         """
-        precio_sl = round((self.entrada_long - self.monto_de_sl / self.cantidad_monedas_long), self.cantidad_decimales_precio)
-        precio_sl = redondeo(precio_sl, self.valor_pips)
+        precio_sl = self.entrada_long - self.monto_de_sl / self.cantidad_monedas_long
         return {"Volumen moneda total": self.cantidad_monedas_long,
                 "Precio de stop loss": precio_sl}
 
@@ -491,11 +490,3 @@ if __name__ == "__main__":
 
     #print("\nDatos de Snow ball SHORT:")
     #pprint.pprint(Datos_calculados_short.snow_ball())
-    
-    stop_price= 0.14448
-    stopprice= redondeo(stop_price, 0.00001)
-    print(f"Precio ajustado: {stopprice}")
-
-    quantity= 40
-    quanti= redondeo(quantity, 1)
-    print(f"Cantidad ajustada: {quanti}")

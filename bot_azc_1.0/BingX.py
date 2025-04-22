@@ -199,54 +199,104 @@ class BingX:
                     }
         return {"LONG": long_position, "SHORT": short_position}
 
-    # Metodo para colocar el take profit y stop loss
-    def dynamic_position_manager(self, symbol: str, positionside: str, seg: int):
-        while True:
-            posiciones = self.get_open_position(symbol)
-            long_amt = float(posiciones["LONG"].get("positionAmt", 0))
-            short_amt = float(posiciones["SHORT"].get("positionAmt", 0))
+    # Metodo para gestionar el stop loss
+    def dynamic_sl_manager(self, symbol: str, positionside: str):
+        posiciones = self.get_open_position(symbol)
+        long_amt = float(posiciones["LONG"].get("positionAmt", 0))
+        short_amt = float(posiciones["SHORT"].get("positionAmt", 0))
 
-            if positionside == "LONG" and long_amt > 0:
-                list_sl = self.get_current_open_orders(symbol,"STOP_MARKET")["long_amt_orders"]
-                print(list_sl, type(list_sl))
-                if list_sl[0] == long_amt:
-                    print("🟢 Posición LONG ya tiene Stop Loss.\n")
-                    break
+        if positionside == "LONG" and long_amt > 0:
+            orders = self.get_current_open_orders(symbol, "STOP_MARKET")
+            list_sl = orders["long_amt_orders"]
 
-                elif list_sl[0] != long_amt:
-                    self._cancel_order(symbol, self.get_current_open_orders(symbol,"STOP_MARKET")["long_orders"][0])
-                    print("🟢 Posición LONG tiene Stop Loss incorrectos, cancelando...\n")
-                    avg_price = float(posiciones["LONG"].get("avgPrice", 0))
-                    stop_price = avg_price - self.monto_sl / long_amt
-                    print(f"🟢 Colocando Stop Loss al LONG: {long_amt} @ {stop_price}")
-                    self.set_stop_loss(symbol, positionside, long_amt, stop_price)
-                    break
+            if not list_sl:
+                print("🟢 Posición LONG no tiene Stop Loss. Colocando...\n")
+                avg_price = float(posiciones["LONG"].get("avgPrice", 0))
+                stop_price = avg_price - self.monto_sl / long_amt # se puede definir con el modulo mgo
+                self.set_stop_loss(symbol, positionside, long_amt, stop_price)
 
-                elif list_sl == []:
-                    print("🟢 Posición LONG no tiene Stop Loss.\n")
-
-                else:
-                    print(list_sl, type(list_sl))
-                    break
-
-            elif positionside == "SHORT" and short_amt > 0:
-                avg_price = float(posiciones["SHORT"].get("avgPrice", 0))
-                stop_price = avg_price * 1.01
-                take_profit = avg_price * 0.99
-
-                print(f"🔴 Colocando Stop Loss al SHORT: {short_amt} @ {stop_price}")
-                self.set_stop_loss(symbol, positionside, short_amt, stop_price)
-                print(f"🔴 Colocando Take Profit al SHORT: {short_amt} @ {take_profit}")
-                self.set_take_profit(symbol, positionside, short_amt, take_profit)
+            elif list_sl[0] != long_amt:
+                print("🟢 Stop Loss incorrecto en LONG. Cancelando y colocando uno nuevo...\n")
+                long_order_id = orders["long_orders"][0]
+                self._cancel_order(symbol, long_order_id)
+                avg_price = float(posiciones["LONG"].get("avgPrice", 0))
+                stop_price = avg_price - self.monto_sl / long_amt
+                self.set_stop_loss(symbol, positionside, long_amt, stop_price)
 
             else:
-                print(f"❌ No hay posición abierta en {positionside}.")
-                break
+                print("🟢 Posición LONG ya tiene Stop Loss correcto.\n")
 
-            time.sleep(seg)
+        elif positionside == "SHORT" and short_amt > 0:
+            orders = self.get_current_open_orders(symbol, "STOP_MARKET")
+            list_sl = orders["short_amt_orders"]
+
+            if not list_sl:
+                print("🔴 Posición SHORT no tiene Stop Loss. Colocando...\n")
+                avg_price = float(posiciones["SHORT"].get("avgPrice", 0))
+                stop_price = avg_price + self.monto_sl / short_amt
+                self.set_stop_loss(symbol, positionside, short_amt, stop_price)
+
+            elif list_sl[0] != short_amt:
+                print("🔴 Stop Loss incorrecto en SHORT. Cancelando y colocando uno nuevo...\n")
+                short_order_id = orders["short_orders"][0]
+                self._cancel_order(symbol, short_order_id)
+                avg_price = float(posiciones["SHORT"].get("avgPrice", 0))
+                stop_price = avg_price + self.monto_sl / short_amt
+                self.set_stop_loss(symbol, positionside, short_amt, stop_price)
+
+            else:
+                print("🔴 Posición SHORT ya tiene Stop Loss correcto.\n")
+
+    # Metodo para gestionar el take profit
+    def dynamic_tp_manager(self, symbol: str, positionside: str):
+        posiciones = self.get_open_position(symbol)
+        long_amt = float(posiciones["LONG"].get("positionAmt", 0))
+        short_amt = float(posiciones["SHORT"].get("positionAmt", 0))
+
+        if positionside == "LONG" and long_amt > 0:
+            orders = self.get_current_open_orders(symbol, "TAKE_PROFIT_MARKET")
+            list_tp = orders["long_amt_orders"]
+
+            if not list_tp:
+                print("🟢 No hay Take Profit en LONG. Colocando uno...\n")
+                avg_price = float(posiciones["LONG"].get("avgPrice", 0))
+                # tp_price = avg_price + (lógica para TP)
+                # self.set_take_profit(symbol, positionside, long_amt, tp_price)
+
+            elif list_tp[0] != long_amt:
+                print("🟢 Take Profit incorrecto en LONG. Reemplazando...\n")
+                long_tp_id = orders["long_orders"][0]
+                self._cancel_order(symbol, long_tp_id)
+                avg_price = float(posiciones["LONG"].get("avgPrice", 0))
+                # tp_price = avg_price + (lógica para TP)
+                # self.set_take_profit(symbol, positionside, long_amt, tp_price)
+
+            else:
+                print("🟢 Take Profit en LONG está correcto.\n")
+
+        elif positionside == "SHORT" and short_amt > 0:
+            orders = self.get_current_open_orders(symbol, "TAKE_PROFIT_MARKET")
+            list_tp = orders["short_amt_orders"]
+
+            if not list_tp:
+                print("🔴 No hay Take Profit en SHORT. Colocando uno...\n")
+                avg_price = float(posiciones["SHORT"].get("avgPrice", 0))
+                # tp_price = avg_price - (lógica para TP)
+                # self.set_take_profit(symbol, positionside, short_amt, tp_price)
+
+            elif list_tp[0] != short_amt:
+                print("🔴 Take Profit incorrecto en SHORT. Reemplazando...\n")
+                short_tp_id = orders["short_orders"][0]
+                self._cancel_order(symbol, short_tp_id)
+                avg_price = float(posiciones["SHORT"].get("avgPrice", 0))
+                # tp_price = avg_price - (lógica para TP)
+                # self.set_take_profit(symbol, positionside, short_amt, tp_price)
+
+            else:
+                print("🔴 Take Profit en SHORT está correcto.\n")
 
     # Metodo para monitorear las posiciones de un activo en tiempo.
-    def monitor_open_positions(self, symbol: str, positionside: str, seg: int = 1, interval: str = "1m"):
+    def monitor_open_positions(self, symbol: str, positionside: str, seg: int = 5, interval: str = "1m"):
         MAX_REQUESTS_PER_MINUTE = 60
         request_count = 0
         start_time = time.time()
@@ -272,10 +322,12 @@ class BingX:
                 print(f"📊 Posiciones abiertas: {positions}.\nMonitoreando posición {positionside.upper()}, cada {seg} segundos.\n")
 
                 if positionside == "LONG" and float(positions["LONG"].get("positionAmt", 0)) > 0:
-                    self.dynamic_position_manager(symbol, "LONG", seg )
+                    self.dynamic_sl_manager(symbol, "LONG")
+                    self.dynamic_tp_manager(symbol, "LONG")
 
                 elif positionside == "SHORT" and float(positions["SHORT"].get("positionAmt", 0)) > 0:
-                    self.dynamic_position_manager(symbol, "SHORT", seg )
+                    self.dynamic_sl_manager(symbol, "SHORT")
+                    self.dynamic_tp_manager(symbol, "SHORT")
 
                 else: # Si no hay posiciones abiertas, iniciar el WebSocket para recibir datos en tiempo real
                     print(f"No hay posición abierta en {positionside}.\n⌛ Esperando señal para abrir posición con Websocket...")
@@ -612,7 +664,7 @@ class BingX:
 if __name__ == "__main__":
     symbol = "DOGE-USDT"
     temporalidad = "1m"
-    direccion = "LONG"
+    direccion = "SHORT" # LONG o SHORT
     entradas = {
         "LONG": 80000,
         "SHORT": 90000,
@@ -640,12 +692,12 @@ if __name__ == "__main__":
 
     """ Operaciones en la cuenta """
     #print("\nPosición abierta:", bingx.get_open_position(symbol))
-    bingx.monitor_open_positions(symbol, direccion)
+    #bingx.monitor_open_positions(symbol, direccion)
     #pprint.pprint({"Ultima vela cerrada del activo": bingx.get_last_candles(symbol, "5m")})
     #bingx.start_websocket(symbol, temporalidad)
     #ordenes_abiertas = bingx.get_current_open_orders(symbol, "TAKE_PROFIT")
-    #cerrar_ordenes = bingx.set_cancel_order(symbol, "LONG")
-    #enviar_ordenes = bingx.set_limit_market_order(datos)
+    #bingx.set_cancel_order(symbol, direccion) # Cancelar ordenes limit
+    #bingx.set_limit_market_order(datos) # Enviar ordenes
 
     """
     try:
@@ -713,4 +765,3 @@ if __name__ == "__main__":
     print(f"Cantidad ajustada: {quanti}")
     print(f"Precio ajustado: {stopprice}")
     """
-
