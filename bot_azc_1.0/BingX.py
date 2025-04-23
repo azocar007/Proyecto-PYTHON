@@ -32,7 +32,6 @@ dict = {
     "gestion_take_profit": "RATIO BENEFICIO/PERDIDA", # "% TAKE PROFIT" - "LCD (Carga y Descarga)"
     "ratio": 2
     }
-
 PosLong = mgo.PosicionLong(dict)
 PosShort = mgo.PosicionShort(dict)
 
@@ -690,7 +689,7 @@ class BingX:
 if __name__ == "__main__":
     symbol = "DOGE-USDT"
     temporalidad = "1m"
-    direccion = "LONG" # LONG o SHORT
+    direccion = "SHORT" # LONG o SHORT
     entradas = {
         "LONG": 80000,
         "SHORT": 90000,
@@ -720,19 +719,17 @@ if __name__ == "__main__":
 
     """ Operaciones en la cuenta """
     #print("\nPosición abierta:", bingx.get_open_position(symbol))
-    bingx.monitor_open_positions(symbol, direccion)
     #pprint.pprint({"Ultima vela cerrada del activo": bingx.get_last_candles(symbol, "5m")})
     #bingx.start_websocket(symbol, temporalidad)
     #ordenes_abiertas = bingx.get_current_open_orders(symbol, "TAKE_PROFIT")
     #bingx.set_cancel_order(symbol, direccion) # Cancelar ordenes limit
     #bingx.set_limit_market_order(datos) # Enviar ordenes
 
-    """
     try:
-        bingx.monitor_open_positions(symbol)
+        bingx.monitor_open_positions(symbol, direccion)
     except KeyboardInterrupt:
         print("🛑 Bot detenido por el usuario")
-    """
+
 
     """
     # Crear los hilos

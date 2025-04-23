@@ -4,20 +4,20 @@ from Entrada_de_datos import entrada_de_datos
 from decimal import Decimal, ROUND_DOWN, ROUND_FLOOR
 
 # Funciones anidades a la funciones LONG, SHORT y SNOW BALL para la gestión de volumen
-def gest_porcen_reentradas(monedas, porcentaje_vol, decimales_mon):
-    monedas = round((monedas * (porcentaje_vol/100 + 1)), decimales_mon)
+def gest_porcen_reentradas(monedas, porcentaje_vol):
+    monedas = (monedas * (porcentaje_vol/100 + 1))
     return monedas
 
-def gest_martingala(vol_monedas, porcentaje_vol, decimales_mon):
-    monedas = round(sum(vol_monedas) * (porcentaje_vol/100 + 1), decimales_mon)
+def gest_martingala(vol_monedas, porcentaje_vol):
+    monedas = sum(vol_monedas) * (porcentaje_vol/100 + 1)
     return monedas
 
-def gest_agresivo(precio, porcentaje_vol, vol_monedas, vol_usdt, decimales_mon, modo_gest):
+def gest_agresivo(precio, porcentaje_vol, vol_monedas, vol_usdt, modo_gest):
     if modo_gest == "UNIDIRECCIONAL LONG":
-        monedas = round(abs((precio * (porcentaje_vol / 100 + 1) * sum(vol_monedas) - sum(vol_usdt)) / (precio * porcentaje_vol / 100)), decimales_mon)
+        monedas = abs((precio * (porcentaje_vol / 100 + 1) * sum(vol_monedas) - sum(vol_usdt)) / (precio * porcentaje_vol / 100))
     
     elif modo_gest == "UNIDIRECCIONAL SHORT":
-        monedas = round(abs((precio * (1 - porcentaje_vol / 100) * sum(vol_monedas) - sum(vol_usdt)) / (precio * porcentaje_vol / 100)), decimales_mon)
+        monedas = abs((precio * (1 - porcentaje_vol / 100) * sum(vol_monedas) - sum(vol_usdt)) / (precio * porcentaje_vol / 100))
     
     else:
         monedas = vol_usdt / precio
@@ -60,23 +60,21 @@ class PosicionLong:
         self.ratio = entrada_de_datos["ratio"]
 
     # Metodo de recompras
-    def recompras(self):
-        # Definir las variables de la función con las claves del diccionario
-        i = 0
-        modo_gest = "UNIDIRECCIONAL LONG"
-        precio = self.entrada_long
-        monedas = self.cantidad_monedas_long
-        monto_sl = self.monto_de_sl
-        decimales_pre = self.cantidad_decimales_precio
-        cant_ree = self.cantidad_de_reentradas
-        porcentaje_ree = self.porcentaje_dist_reentradas
-        gestion_volumen = self.modo_seleccionado
-        porcentaje_vol = self.porcentaje_vol_reentrada
-        decimales_mon = self.cantidad_decimales_monedas
+    def recompras(self,
+        precio: float,
+        monedas: float,
+        cantidad_usdt_long: float,
+        monto_sl: float,
+        cant_ree: int,
+        porcentaje_ree: float,
+        porcentaje_vol: int = 0,
+        modo_gest: str = "UNIDIRECCIONAL LONG",
+        gestion_volumen: str = "MARTINGALA" # "% DE REENTRADAS", "MARTINGALA", "AGRESIVO"
+        ):
 
-        # Definiendo el valor N/A de monedas 
+        # Definiendo el valor N/A de monedas
         if monedas == "N/A":
-            monedas = round(precio * self.cantidad_usdt_long, decimales_mon)
+            monedas = precio * cantidad_usdt_long
 
         # Definiendo valores iniciales de las listas
         list_reentradas = [precio]
@@ -84,9 +82,10 @@ class PosicionLong:
         vol_usdt = [round(precio*monedas,4)]
         precios_prom = []
         precios_stop_loss = []
-        precio_sl = round((precio - monto_sl / monedas), decimales_pre)
+        precio_sl = precio - monto_sl / monedas
 
         # Condicional para corregir el valor de "cero 0" en la cantidad de reentradas
+        i = 0
         if cant_ree <= 0:
             cant_ree = 1000
 
@@ -95,19 +94,19 @@ class PosicionLong:
             # Iterador
             i += 1
             # Reentradas:
-            precio = round((precio - (precio * porcentaje_ree/100)), decimales_pre)
+            precio = precio - (precio * porcentaje_ree/100)
             # vol_monedas:
             if gestion_volumen == "MARTINGALA":
-                monedas = gest_martingala(vol_monedas, porcentaje_vol, decimales_mon)
+                monedas = gest_martingala(vol_monedas, porcentaje_vol)
             elif gestion_volumen == "% DE REENTRADAS":
-                monedas = gest_porcen_reentradas(monedas, porcentaje_vol, decimales_mon)
+                monedas = gest_porcen_reentradas(monedas, porcentaje_vol)
             else:
-                monedas = gest_agresivo(precio, porcentaje_vol, vol_monedas, vol_usdt, decimales_mon, modo_gest)
+                monedas = gest_agresivo(precio, porcentaje_vol, vol_monedas, vol_usdt, modo_gest)
             # Precios_prom (precios promedios)
             usdt = round(monedas * precio, 4)
-            prom = round(sum(vol_usdt) / sum(vol_monedas), decimales_pre)
+            prom = sum(vol_usdt) / sum(vol_monedas)
             # Precio de Stop Loss
-            precio_sl = round(prom - monto_sl / sum(vol_monedas),decimales_pre)
+            precio_sl = prom - monto_sl / sum(vol_monedas)
             # Ingreso de resultados a las listas correspondientes
             vol_usdt.append(usdt)
             vol_monedas.append(monedas)
@@ -117,8 +116,8 @@ class PosicionLong:
         # Eliminando elementos que sobran en las listas
         vol_monedas.pop()
         list_reentradas.pop()
-        vol_acum = round(sum(vol_monedas),decimales_mon)
-        vol_usdt_total = round(vol_acum * precios_prom[-1], self.cantidad_decimales_monedas)
+        vol_acum = sum(vol_monedas)
+        vol_usdt_total = vol_acum * precios_prom[-1]
         if cant_ree > len(list_reentradas):
             mensj = "Cantidad de entradas solicitadas es mayor a las calculadas."
         else:
@@ -135,43 +134,47 @@ class PosicionLong:
                 "Volumen USDT total": vol_usdt_total,
                 "Mensaje": mensj}
 
-    # Metodo de snow ball
-    def snow_ball(self):
-        # Definir las variables de la función con las claves del diccionario    
-        i = 0
-        precio_long = self.entrada_long
-        list_reent_long = [precio_long]
-        monedas = self.cantidad_monedas_long
-        gestion_volumen = self.modo_seleccionado
-        vol_monedas = [monedas]
-        vol_usdt_long = [round(precio_long * self.cantidad_monedas_long, 4)]
-        precios_prom_long = []
-        precios_stop_loss_long = []
-        precio_sl_long = round((precio_long - self.monto_de_sl / self.cantidad_monedas_long), self.cantidad_decimales_precio)
-        decimales_mon = self.cantidad_decimales_monedas
+    # Metodo de Snow ball
+    def snow_ball(self,
+        precio_long: float,
+        monedas: float,
+        cant_ree: int,
+        cantidad_monedas_long: float,
+        monto_sl: float,
+        porcentaje_ree: float,
+        porcentaje_vol: int = 0,
+        gestion_volumen: str = "MARTINGALA"): # "% DE REENTRADAS", "MARTINGALA", "AGRESIVO"
 
         # Condicional para corregir el valor de "cero 0" en la cantidad de reentradas
-        if self.cantidad_de_reentradas <= 2:
-            self.cantidad_de_reentradas = 2
+        list_reent_long: list = [precio_long]
+        vol_monedas = [monedas]
+        vol_usdt_long = [round(precio_long * cantidad_monedas_long, 4)]
+        precios_prom_long = [],
+        precios_stop_loss_long = [],
+        precio_sl_long = (precio_long - monto_sl / cantidad_monedas_long)
+
+        i = 0
+        if cant_ree <= 2:
+            cant_ree = 2
 
         # Bucle para obtener las listas LONG
-        while i < self.cantidad_de_reentradas:
+        while i < cant_ree:
             # Iterador
             i += 1
             # Reentradas:
-            precio_long = round((precio_long + (precio_long * self.porcentaje_dist_reentradas / 100)), self.cantidad_decimales_precio)
+            precio_long = precio_long + (precio_long * porcentaje_ree / 100)
             # vol_monedas:
             if gestion_volumen == "MARTINGALA":
-                monedas = gest_martingala(vol_monedas, self.porcentaje_vol_reentrada, self.cantidad_decimales_monedas)
+                monedas = gest_martingala(vol_monedas, porcentaje_vol)
             elif gestion_volumen == "% DE REENTRADAS":
-                monedas = gest_porcen_reentradas(monedas, self.porcentaje_vol_reentrada, self.cantidad_decimales_monedas)
+                monedas = gest_porcen_reentradas(monedas, porcentaje_vol)
             else:
-                monedas = gest_agresivo(precio_long, self.porcentaje_vol_reentrada, vol_monedas, vol_usdt_long, decimales_mon, modo_gest = "UNIDIRECCIONAL SHORT")
+                monedas = gest_agresivo(precio_long, porcentaje_vol, vol_monedas, vol_usdt_long, modo_gest = "UNIDIRECCIONAL SHORT")
             # Precios_prom (precios promedios)
             usdt_long = round(monedas * precio_long, 4)
-            prom_long = round(sum(vol_usdt_long) / sum(vol_monedas), self.cantidad_decimales_precio)
+            prom_long = sum(vol_usdt_long) / sum(vol_monedas)
             # Precio de Stop Loss
-            precio_sl_long = round(prom_long - self.monto_de_sl / sum(vol_monedas), self.cantidad_decimales_precio)
+            precio_sl_long = prom_long - monto_sl / sum(vol_monedas)
             # Ingreso de resultados a las listas correspondientes
             vol_usdt_long.append(usdt_long)
             vol_monedas.append(monedas)
@@ -207,12 +210,10 @@ class PosicionLong:
             pass
 
     # Funcion para calcular el volumen de las monedas
-    def vol_monedas(self):
-        if self.gestion_seleccionada == "RATIO BENEFICIO/PERDIDA LONG":
-            self.cantidad_monedas_long = round((self.monto_de_sl ) / abs(self.entrada_long - self.entrada_stoploss), self.cantidad_decimales_monedas)
-        return {"Precio de entrada" : self.entrada_long,
-                "Volumen monedas total": self.cantidad_monedas_long,
-                "Precio de stop loss": self.entrada_stoploss}
+    def vol_monedas(self, monto_sl: float, entrada_long: float, entrada_stoploss: float):
+        cantidad_monedas_long = monto_sl / abs(entrada_long - entrada_stoploss)
+        return cantidad_monedas_long
+
 
 # Clase para la gestión de posiciones SHORT
 class PosicionShort: # Falta calcular el metodo de snow ball
@@ -315,7 +316,7 @@ class PosicionShort: # Falta calcular el metodo de snow ball
                 "Volumen USDT total": vol_usdt_total,
                 "Mensaje": mensj}
 
-    # Metodo de snow ball
+    # Metodo de Snow ball
     def snow_ball(self):
         # Definir las variables de la función con las claves del diccionario    
         i = 0
@@ -376,24 +377,20 @@ class PosicionShort: # Falta calcular el metodo de snow ball
     # Metodo de take profit
     def take_profit(self, gestion_take_profit: str, precio_prom: float, monto_sl: float, cantidad_monedas: float, ratio: float):
         if gestion_take_profit == "% TAKE PROFIT":
-            precio_tp = precio_prom * ratio/100 - precio_prom
+            precio_tp = precio_prom - precio_prom * ratio/100
             return precio_tp
 
         elif gestion_take_profit == "RATIO BENEFICIO/PERDIDA":
-            precio_tp = abs(precio_prom - self.stop_loss(precio_prom, monto_sl, cantidad_monedas)) * ratio - precio_prom
+            precio_tp = precio_prom - abs(precio_prom - self.stop_loss(precio_prom, monto_sl, cantidad_monedas)) * ratio
             return precio_tp
 
         else: # "LCD (Carga y Descarga)"
             pass
 
     # Funcion para calcular el volumen de las monedas
-    def vol_monedas(self):
-        if self.gestion_seleccionada == "RATIO BENEFICIO/PERDIDA SHORT":
-            self.cantidad_monedas_short = round((self.monto_de_sl ) / abs(self.entrada_short - self.entrada_stoploss), self.cantidad_decimales_monedas)
-            return {"Precio de entrada" : self.entrada_short,
-                    "Volumen monedas total": self.cantidad_monedas_short,
-                    "Precio de stop loss": self.entrada_stoploss}
-
+    def vol_monedas(self, monto_sl: float, entrada_short: float, entrada_stoploss: float):
+        cantidad_monedas_short = monto_sl / abs(entrada_short - entrada_stoploss)
+        return cantidad_monedas_short
 
 
 # COMPROBACIÓN DEL MODULO
