@@ -11,29 +11,8 @@ import io
 import websocket
 import requests
 
-dict = {
-    "gestion_seleccionada": "UNIDERECCIONAL SHORT" , # UNIDIRECCIONAL SHORT LONG - DOBLE TAP - SNOW BALL
-    "gestion_de_entrada": "LIMITE", # MERCADO - LIMITE - BBO
-    "entrada_long": 0.16421,
-    "entrada_short": 0.16481,
-    "porcentaje_dist_reentradas": 2,
-    "cantidad_usdt_long" : 6.71,
-    "cantidad_usdt_short" : 6.71,
-    "cantidad_monedas_long": 40,
-    "cantidad_monedas_short": 40,
-    "modo_seleccionado": "% DE REENTRADAS", # % DE REENTRADAS - MARTINGALA - AGRESIVO
-    "porcentaje_vol_reentrada": 50,
-    "monto_de_sl": 1.0,
-    "entrada_stoploss": 0.2400,
-    "cantidad_de_reentradas": 4,
-    "cantidad_decimales_monedas": 0,
-    "cantidad_decimales_precio": 5,
-    "valor_pips": "0.00001",
-    "gestion_take_profit": "RATIO BENEFICIO/PERDIDA", # "% TAKE PROFIT" - "LCD (Carga y Descarga)"
-    "ratio": 2
-    }
-PosLong = mgo.PosicionLong(dict)
-PosShort = mgo.PosicionShort(dict)
+PosLong = mgo.PosicionLong()
+PosShort = mgo.PosicionShort()
 
 # Definiendo la clase BingX
 class BingX:
@@ -61,7 +40,6 @@ class BingX:
         self.position_opened_by_strategy = False  # Flag para control de entrada
         self.ratio = self.dict["ratio"] if "ratio" in self.dict else 1
         self.gestion_take_profit = self.dict["gestion_take_profit"] # RATIO BENEFICIO/PERDIDA, % TAKE PROFIT , LCD
-
 
 
     """ METODOS PARA OBETENER INFORMACION DE LA CUENTA Y DE LAS MONEDAS """
@@ -356,7 +334,7 @@ class BingX:
 
                 else: # Si no hay posiciones abiertas, iniciar el WebSocket para recibir datos en tiempo real
                     print(f"No hay posición abierta en {positionside}.\n⌛ Esperando señal para abrir posición con Websocket...")
-                    self.start_websocket(symbol, interval)
+                    self.start_websocket(symbol, positionside, interval)
 
                 request_count += 1
             except Exception as e:
@@ -455,7 +433,7 @@ class BingX:
         #return candles[1]["close"] # Retorna el ultimo precio comercializado del activo
 
     # Metodo para obtener el precio en tiempo real con websocket
-    def start_websocket(self, symbol: str, interval: str = "1m"):
+    def start_websocket(self, symbol: str, positionside: str, interval: str = "1m"):
         """Inicia una conexión WebSocket evitando múltiples conexiones simultáneas"""
         if self.ws_running:
             print("⚠️ WebSocket ya está en ejecución, evitando conexión duplicada.")
@@ -482,7 +460,7 @@ class BingX:
                     self.last_price = float(data["data"][0]["c"])
                     print(f"Información vela: {data["dataType"]}: {data["data"]}")
                     print(f"💰 Precio actualizado: {self.last_price}")
-                    self.check_strategy(self.last_price) # Ejecuta la estrategia en tiempo real
+                    self.check_strategy(self.last_price, positionside, symbol) # Ejecuta la estrategia en tiempo real
 
                     if self.position_opened_by_strategy:
                         print("✅ Posición abierta. Cambiando a monitoreo.")
@@ -518,21 +496,30 @@ class BingX:
         threading.Thread(target=self.start_websocket, args=(symbol, interval)).start()
 
     # Estrategia de entrada al mercado
-    def check_strategy(self, last_price):
-        """
-        Aquí defines la lógica de trading.
-        :param last_price: Último precio recibido.
-        """
+    def check_strategy(self, last_price: float, positionside: str, symbol: str):
         # Configurar un umbral de compra y venta
-        if last_price <= float(self.entrada_long):
-            print("📉 Precio bajo detectado. Oportunidad de COMPRA 💰")
-            self.position_opened_by_strategy = True
 
-        elif last_price >= float(self.entrada_short):
-            print("📈 Precio alto detectado. Oportunidad de VENTA 🔥")
-            self.position_opened_by_strategy = True
+        if positionside == "LONG":
 
-        else:
+            # Ejemplo de entrada LONG
+            if last_price <= float(self.entrada_long): # Aqui sew debe colocar el gatillo de entrada
+                print("📉 Precio bajo detectado. Oportunidad de COMPRA 💰")
+                positions = self.get_open_position(symbol)
+                long_amt = float(positions["LONG"].get("positionAmt", 0))
+                if long_amt > 0:
+                    self.position_opened_by_strategy = True
+
+        elif positionside == "SHORT":
+
+            # Ejemplo de entrada SHORT
+            if last_price >= float(self.entrada_short): # Aqui sew debe colocar el gatillo de entrada
+                print("📈 Precio alto detectado. Oportunidad de VENTA 🔥")
+                positions = self.get_open_position(symbol)
+                short_amt = float(positions["SHORT"].get("positionAmt", 0))
+                if short_amt > 0:
+                    self.position_opened_by_strategy = True
+
+        else: # Si no hay posición abierta, continuar monitoreo en la websocket
             self.position_opened_by_strategy = False
 
 
@@ -660,7 +647,7 @@ class BingX:
         return self._send_request("DELETE", "/openApi/swap/v2/trade/order", params)
 
     # Metodo para cancelar todas las ordenes abiertas por positionSide
-    def set_cancel_order(self, symbol: str, positionSide: str = None):
+    def set_cancel_order(self, symbol: str, positionSide: str):
 
         if positionSide == "LONG":
             if self.get_current_open_orders(symbol)["long_total"] == 0:
@@ -687,12 +674,12 @@ class BingX:
 
 # Ejemplo de uso
 if __name__ == "__main__":
-    symbol = "DOGE-USDT"
+    symbol = "ETH-USDT"
     temporalidad = "1m"
-    direccion = "SHORT" # LONG o SHORT
+    direccion = "LONG" # LONG o SHORT
     entradas = {
         "LONG": 80000,
-        "SHORT": 90000,
+        "SHORT": 95000,
         "monto_sl": 2,
         "gestion_take_profit": "RATIO BENEFICIO/PERDIDA",
         "ratio": 2
