@@ -1,5 +1,5 @@
 ### Modulo BingX ###
-import Modos_de_gestion_operativa as mgo
+
 import pprint
 import time
 import threading
@@ -10,6 +10,7 @@ import gzip
 import io
 import websocket
 import requests
+import Modos_de_gestion_operativa as mgo
 
 PosLong = mgo.PosicionLong()
 PosShort = mgo.PosicionShort()
@@ -385,6 +386,8 @@ class BingX:
             mensaje = "STOP LOSS"
         elif type == "TAKE_PROFIT":
             mensaje = "TAKE PROFIT LIMIT"
+        elif type == "TAKE_PROFIT_MARKET":
+            mensaje = "TAKE PROFIT MARKET"
         elif type == "LIMIT":
             mensaje = "Total ordenes LIMIT"
         else:
@@ -502,8 +505,8 @@ class BingX:
         if positionside == "LONG":
 
             # Ejemplo de entrada LONG
-            if last_price <= float(self.entrada_long): # Aqui sew debe colocar el gatillo de entrada
-                print("📉 Precio bajo detectado. Oportunidad de COMPRA 💰")
+            if last_price <= float(self.entrada_long): # Aqui se debe colocar el gatillo de entrada
+                print("📉 Señal Long activada, entrada en LONG ejecutada! 🔥💰")
                 positions = self.get_open_position(symbol)
                 long_amt = float(positions["LONG"].get("positionAmt", 0))
                 if long_amt > 0:
@@ -512,8 +515,8 @@ class BingX:
         elif positionside == "SHORT":
 
             # Ejemplo de entrada SHORT
-            if last_price >= float(self.entrada_short): # Aqui sew debe colocar el gatillo de entrada
-                print("📈 Precio alto detectado. Oportunidad de VENTA 🔥")
+            if last_price >= float(self.entrada_short): # Aqui se debe colocar el gatillo de entrada
+                print("📈 Señal Short activada, entrada en SHORT ejecutada! 🔥💰")
                 positions = self.get_open_position(symbol)
                 short_amt = float(positions["SHORT"].get("positionAmt", 0))
                 if short_amt > 0:
@@ -544,41 +547,44 @@ class BingX:
         return response.json()
 
     # Metodo para colocar el take profit
-    def set_take_profit(self, symbol: str, position_side: str, quantity: float, stop_price: float,
+    def set_take_profit(self, symbol: str, positionside: str, quantity: float, stop_price: float,
                         working_type: str = "CONTRACT_PRICE", order_type: str = "LIMIT") -> dict:
         # Ajustando decimales
         stop_price = mgo.redondeo(stop_price, self.pip_precio(symbol))
         quantity = mgo.redondeo(quantity, self.pip_moneda(symbol))
 
-        side = "SELL" if position_side == "LONG" else "BUY"
+        side = "SELL" if positionside == "LONG" else "BUY"
 
         params = {
             "symbol": symbol,
             "side": side,
-            "positionSide": position_side,
-            "type": "TAKE_PROFIT_MARKET" if order_type == "MARKET" else "TAKE_PROFIT",
+            "positionSide": positionside,
+            "type": None,
             "quantity": quantity,
             "stopPrice": stop_price,
             "workingType": working_type,
         }
         if order_type == "LIMIT":
+            params["type"] = "TAKE_PROFIT"
             params["price"] = stop_price
+        else: # order_type == "MARKET"
+            params["type"] = "TAKE_PROFIT_MARKET"
 
         return self._send_request("POST", "/openApi/swap/v2/trade/order", params)
 
     # Metodo para colocar el stop loss
-    def set_stop_loss(self, symbol: str, position_side: str, quantity: float,
+    def set_stop_loss(self, symbol: str, positionside: str, quantity: float,
                         stop_price: float, working_type: str = "CONTRACT_PRICE") -> dict:
         # Ajustando decimales
         stop_price = mgo.redondeo(stop_price, self.pip_precio(symbol))
         quantity = mgo.redondeo(quantity, self.pip_moneda(symbol))
 
-        side = "SELL" if position_side == "LONG" else "BUY"
+        side = "SELL" if positionside == "LONG" else "BUY"
 
         params = {
             "symbol": symbol,
             "side": side,
-            "positionSide": position_side,
+            "positionSide": positionside,
             "type": "STOP_MARKET",
             "quantity": quantity,
             "stopPrice": stop_price,
@@ -588,7 +594,7 @@ class BingX:
         return self._send_request("POST", "/openApi/swap/v2/trade/order", params)
 
     # Metodo para colocar una orden de mercado o limit
-    def _limit_market_order(self, symbol: str, position_side: str, quantity: float,
+    def _limit_market_order(self, symbol: str, positionside: str, quantity: float,
                         price: float = None, working_type: str = "CONTRACT_PRICE", type: str = "MARKET") -> dict:
         """"
         Ejemplos de uso:
@@ -598,15 +604,15 @@ class BingX:
         positionSide="SHORT" con side="BUY" → Cierra una posición corta.
         """
         # Ajustando decimales
-        price = mgo.redondeo(stop_price, self.pip_precio(symbol))
+        price = mgo.redondeo(price, self.pip_precio(symbol))
         quantity = mgo.redondeo(quantity, self.pip_moneda(symbol))
 
-        side = "BUY" if position_side == "LONG" else "SELL"
+        side = "BUY" if positionside == "LONG" else "SELL"
 
         params = {
             "symbol": symbol,
             "side": side,
-            "positionSide": position_side,
+            "positionSide": positionside,
             "type": type,
             "quantity": quantity,
             "price": price,
@@ -616,24 +622,25 @@ class BingX:
         return self._send_request("POST", "/openApi/swap/v2/trade/order", params)
 
     # Metodo para crear una posicion limit
-    def set_limit_market_order(self, data: dict)-> dict:
+    def set_limit_market_order(self, symbol: str, data: dict)-> dict:
         """ Datos del diccionario para armar las ordenes """
-        symbol: str = data["symbol"]
-        position_side: str = data["position_side"]
+        positionside: str = data["positionside"]
         type: str = data["type"]
         quantity: list = data["quantitys"]
         price: list = data["prices"]
+
         num_orders = 0
+
         for quantity, price in zip(data["quantitys"], data["prices"]):
             self._limit_market_order(
-                symbol=symbol,
-                position_side=position_side,
-                quantity=quantity,
-                price=price,
-                type=type
+                symbol = symbol,
+                positionside = positionside,
+                quantity = quantity,
+                price = price,
+                type = type
             )
             num_orders += 1
-            print(f"Orden {num_orders} enviada: {position_side} => {price} @ {quantity}")
+            print(f"Orden {num_orders} enviada: {positionside} => {price} @ {quantity}")
             time.sleep(1)  # Espera 1 segundo entre cada orden
         return self.get_current_open_orders(symbol)
 
@@ -642,7 +649,7 @@ class BingX:
         params = {
             "orderId": order_id, #requerido
             "symbol": symbol
-        }
+            }
         print(f"Ordenid: {order_id} cancelada")
         return self._send_request("DELETE", "/openApi/swap/v2/trade/order", params)
 

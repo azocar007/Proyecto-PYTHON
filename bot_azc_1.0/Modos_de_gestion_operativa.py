@@ -36,27 +36,27 @@ def redondeo(valor: float, pip_valor: str) -> float:
 
 # Clase para la gestión de posiciones LONG
 class PosicionLong:
+
     # Metodo de recompras
     def recompras(self,
         precio: float,
-        monedas: float,
-        cantidad_usdt_long: float,
         monto_sl: float,
         cant_ree: int,
         porcentaje_ree: float,
+        monedas: float,
         porcentaje_vol: int = 0,
-        modo_gest: str = "UNIDIRECCIONAL LONG",
+        cantidad_usdt_long: float = None,
         gestion_volumen: str = "MARTINGALA" # "% DE REENTRADAS", "MARTINGALA", "AGRESIVO"
         ):
 
         # Definiendo el valor N/A de monedas
         if monedas == "N/A":
-            monedas = precio * cantidad_usdt_long
+            monedas = cantidad_usdt_long / precio 
 
         # Definiendo valores iniciales de las listas
         list_reentradas = [precio]
         vol_monedas = [monedas]
-        vol_usdt = [round(precio*monedas,4)]
+        vol_usdt = [round(precio * monedas, 4)]
         precios_prom = []
         precios_stop_loss = []
         precio_sl = precio - monto_sl / monedas
@@ -78,7 +78,7 @@ class PosicionLong:
             elif gestion_volumen == "% DE REENTRADAS":
                 monedas = gest_porcen_reentradas(monedas, porcentaje_vol)
             else:
-                monedas = gest_agresivo(precio, porcentaje_vol, vol_monedas, vol_usdt, modo_gest)
+                monedas = gest_agresivo(precio, porcentaje_vol, vol_monedas, vol_usdt, "UNIDIRECCIONAL LONG")
             # Precios_prom (precios promedios)
             usdt = round(monedas * precio, 4)
             prom = sum(vol_usdt) / sum(vol_monedas)
@@ -100,7 +100,9 @@ class PosicionLong:
         else:
             mensj = "Cantidad de entradas acorde a lo establecido"
         # Retorno de resultados
-        return {"positionSide": "LONG",
+        return {"modo_gest": "UNIDIRECCIONAL LONG",
+                "positionside": "LONG",
+                "gestion de volumen": gestion_volumen,
                 "type": "LIMIT",
                 "Prices": list_reentradas,
                 "Precios promedios": precios_prom,
@@ -116,20 +118,26 @@ class PosicionLong:
         precio_long: float,
         monedas: float,
         cant_ree: int,
-        cantidad_monedas_long: float,
         monto_sl: float,
         porcentaje_ree: float,
         porcentaje_vol: int = 0,
-        gestion_volumen: str = "MARTINGALA"): # "% DE REENTRADAS", "MARTINGALA", "AGRESIVO"
+        cantidad_usdt_long: float = None,
+        gestion_volumen: str = "MARTINGALA" # "% DE REENTRADAS", "MARTINGALA", "AGRESIVO"
+        ):
 
-        # Condicional para corregir el valor de "cero 0" en la cantidad de reentradas
+        # Definiendo el valor N/A de monedas
+        if monedas == "N/A":
+            monedas = cantidad_usdt_long / precio_long 
+
+        # Listas iniciales
         list_reent_long: list = [precio_long]
         vol_monedas = [monedas]
-        vol_usdt_long = [round(precio_long * cantidad_monedas_long, 4)]
-        precios_prom_long = [],
-        precios_stop_loss_long = [],
-        precio_sl_long = (precio_long - monto_sl / cantidad_monedas_long)
+        vol_usdt_long = [round(precio_long * monedas, 4)]
+        precios_prom_long = []
+        precios_stop_loss_long = []
+        precio_sl_long = precio_long - monto_sl / monedas
 
+        # Condicional para corregir el valor de "cero 0" en la cantidad de reentradas
         i = 0
         if cant_ree <= 2:
             cant_ree = 2
@@ -146,7 +154,7 @@ class PosicionLong:
             elif gestion_volumen == "% DE REENTRADAS":
                 monedas = gest_porcen_reentradas(monedas, porcentaje_vol)
             else:
-                monedas = gest_agresivo(precio_long, porcentaje_vol, vol_monedas, vol_usdt_long, modo_gest = "UNIDIRECCIONAL SHORT")
+                monedas = gest_agresivo(precio_long, porcentaje_vol, vol_monedas, vol_usdt_long, "UNIDIRECCIONAL SHORT")
             # Precios_prom (precios promedios)
             usdt_long = round(monedas * precio_long, 4)
             prom_long = sum(vol_usdt_long) / sum(vol_monedas)
@@ -162,7 +170,9 @@ class PosicionLong:
         list_reent_long.pop()
         vol_acum = sum(vol_monedas)
 
-        return {"Precios de reentradas" : list_reent_long,
+        return {"modo_gest": "SNOW BALL",
+                "positionside": "LONG",
+                "Precios de reentradas" : list_reent_long,
                 "Precios promedios" : precios_prom_long,
                 "Precios de stop loss" : precios_stop_loss_long,
                 "Volumenes de monedas" : vol_monedas,
@@ -193,22 +203,23 @@ class PosicionLong:
 
 
 # Clase para la gestión de posiciones SHORT
-class PosicionShort: # Falta calcular el metodo de snow ball
+class PosicionShort:
+
     # Metodo de recompras
     def recompras(self,
         precio: float,
-        monedas: float,
-        cantidad_usdt_short: float,
         monto_sl: float,
         cant_ree: int,
         porcentaje_ree: float,
+        monedas: float,
         porcentaje_vol: int = 0,
-        modo_gest = "UNIDIRECCIONAL SHORT",
-        gestion_volumen: str = "MARTINGALA", # "% DE REENTRADAS", "MARTINGALA", "AGRESIVO"
+        cantidad_usdt_short: float = None,
+        gestion_volumen: str = "MARTINGALA" # "% DE REENTRADAS", "MARTINGALA", "AGRESIVO"
         ):
+
         # Definiendo el valor N/A de monedas
         if monedas == "N/A":
-            monedas = cantidad_usdt_short * precio
+            monedas = cantidad_usdt_short / precio
 
         # Definiendo valores iniciales de las listas
         list_reentradas = [precio]
@@ -235,7 +246,7 @@ class PosicionShort: # Falta calcular el metodo de snow ball
             elif gestion_volumen == "% DE REENTRADAS":
                 monedas = gest_porcen_reentradas(monedas, porcentaje_vol)
             else:
-                monedas = gest_agresivo(precio, porcentaje_vol, vol_monedas, vol_usdt, modo_gest)
+                monedas = gest_agresivo(precio, porcentaje_vol, vol_monedas, vol_usdt, "UNIDIRECCIONAL SHORT")
             # Precios_prom (precios promedios)
             usdt = round(monedas * precio, 4)
             prom = sum(vol_usdt) / sum(vol_monedas)
@@ -251,13 +262,15 @@ class PosicionShort: # Falta calcular el metodo de snow ball
         vol_monedas.pop()
         list_reentradas.pop()
         vol_acum = sum(vol_monedas)
-        vol_usdt_total = round(vol_acum * precios_prom[-1], self.cantidad_decimales_monedas)
+        vol_usdt_total = vol_acum * precios_prom[-1]
         if cant_ree > len(list_reentradas):
             mensj = "Cantidad de entradas solicitadas es mayor a las calculadas."
         else:
             mensj = "Cantidad de entradas acorde a lo establecido"
         # Retorno de resultados
-        return {"positionSide": "SHORT",
+        return {"modo_gest": "UNIDIRECCIONAL SHORT",
+                "positionSide": "SHORT",
+                "gestion de volumen": gestion_volumen,
                 "type": "LIMIT",
                 "prices": list_reentradas,
                 "Precios promedios": precios_prom,
@@ -273,20 +286,25 @@ class PosicionShort: # Falta calcular el metodo de snow ball
         precio_short: float,
         monedas: float,
         cant_ree: int,
-        cantidad_monedas_short: float,
         monto_sl: float,
         porcentaje_ree: float,
         porcentaje_vol: int = 0,
-        gestion_volumen: str = "MARTINGALA"): # "% DE REENTRADAS", "MARTINGALA", "AGRESIVO"
+        cantidad_usdt_short: float = None,
+        gestion_volumen: str = "MARTINGALA" # "% DE REENTRADAS", "MARTINGALA", "AGRESIVO"
+        ):
 
-        # Condicional para corregir el valor de "cero 0" en la cantidad de reentradas
+        if monedas == "N/A":
+            monedas = cantidad_usdt_short / precio_short
+
+        # Listas iniciales
         list_reent_short: list = [precio_short]
         vol_monedas = [monedas]
-        vol_usdt_short = [round(precio_short * cantidad_monedas_short, 4)]
-        precios_prom_short = [],
-        precios_stop_loss_short = [],
-        precio_sl_short = precio_short - monto_sl / cantidad_monedas_short
+        vol_usdt_short = [round(precio_short * monedas, 4)]
+        precios_prom_short = []
+        precios_stop_loss_short = []
+        precio_sl_short = precio_short - monto_sl / monedas
 
+        # Condicional para corregir el valor de "cero 0" en la cantidad de reentradas
         i = 0
         if cant_ree <= 2:
             cant_ree = 2
@@ -303,7 +321,7 @@ class PosicionShort: # Falta calcular el metodo de snow ball
             elif gestion_volumen == "% DE REENTRADAS":
                 monedas = gest_porcen_reentradas(monedas, porcentaje_vol)
             else:
-                monedas = gest_agresivo(precio_short, porcentaje_vol, vol_monedas, vol_usdt_short, modo_gest = "UNIDIRECCIONAL SHORT")
+                monedas = gest_agresivo(precio_short, porcentaje_vol, vol_monedas, vol_usdt_short, "UNIDIRECCIONAL SHORT")
             # Precios_prom (precios promedios)
             usdt_short = round(monedas * precio_short, 4)
             prom_short = sum(vol_usdt_short) / sum(vol_monedas)
@@ -319,7 +337,9 @@ class PosicionShort: # Falta calcular el metodo de snow ball
         list_reent_short.pop()
         vol_acum = sum(vol_monedas)
 
-        return {"Precios de reentradas" : list_reent_short,
+        return {"modo_gest": "SNOW BALL",
+                "positionSide": "SHORT",
+                "Precios de reentradas" : list_reent_short,
                 "Precios promedios" : precios_prom_short,
                 "Precios de stop loss" : precios_stop_loss_short,
                 "Volumenes de monedas" : vol_monedas,
@@ -382,21 +402,60 @@ if __name__ == "__main__":
     # Empleando el diccionario de ensayo
 
     # Long
-    #Datos_calculados_long= PosicionLong(datos_de_entrada)
-    #pprint.pprint(Datos_calculados_long.recompras())
+    """
+    PosLong = PosicionLong()
+    pprint.pprint(PosLong.recompras(
+                                    precio = 0.16421,
+                                    monto_sl = 10.0,
+                                    cant_ree = 10,
+                                    porcentaje_ree = 2,
+                                    monedas = "N/A",
+                                    cantidad_usdt_long = 6.71,
+                                    porcentaje_vol = 50,
+                                    gestion_volumen = "% DE REENTRADAS",
+                                    ))
     #pprint.pprint(Datos_calculados_long.vol_monedas())
     #pprint.pprint(Datos_calculados_long.take_profit())
     #pprint.pprint(Datos_calculados_long.stop_loss())
-    #pprint.pprint(Datos_calculados_long.snow_ball())
+    pprint.pprint(PosLong.snow_ball(
+                                    precio_long = 0.16421,
+                                    monto_sl = 10.0,
+                                    cant_ree = 10,
+                                    porcentaje_ree = 2,
+                                    monedas = "N/A",
+                                    cantidad_usdt_long = 6.71,
+                                    porcentaje_vol = 50,
+                                    gestion_volumen = "% DE REENTRADAS",
+                                    ))
+    """
 
     # Short
-    #Datos_calculados_short= PosicionShort(datos_de_entrada)
-    #print("\nDATOS DE CLASE LA SHORT:")
-    #pprint.pprint(Datos_calculados_short.recompras())
+    """
+    PosShort = PosicionShort()
+    pprint.pprint(PosShort.recompras(
+                                    precio = 0.16421,
+                                    monto_sl = 10.0,
+                                    cant_ree = 3,
+                                    porcentaje_ree = 2,
+                                    monedas = "N/A",
+                                    cantidad_usdt_short = 6.71,
+                                    porcentaje_vol = 50,
+                                    gestion_volumen = "% DE REENTRADAS",
+                                    ))
     #pprint.pprint(Datos_calculados_short.vol_monedas())
     #pprint.pprint(Datos_calculados_short.take_profit())
     #pprint.pprint(Datos_calculados_short.stop_loss())
-    #pprint.pprint(Datos_calculados_short.snow_ball())
+    pprint.pprint(PosShort.snow_ball(
+                                    precio_short = 0.16421,
+                                    monto_sl = 10.0,
+                                    cant_ree = 3,
+                                    porcentaje_ree = 2,
+                                    monedas = "N/A",
+                                    cantidad_usdt_short = 6.71,
+                                    porcentaje_vol = 50,
+                                    gestion_volumen = "% DE REENTRADAS",
+                                    ))
+    """
 
     """ 
     Para cambiar un dato de los diccionarios resultantes de la clase
