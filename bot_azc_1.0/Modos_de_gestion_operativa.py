@@ -1,6 +1,5 @@
 ### MODOS DE GESTION OPERATIVA ###
 import pprint
-from Entrada_de_datos import entrada_de_datos
 from decimal import Decimal, ROUND_DOWN, ROUND_FLOOR
 
 # Funciones anidades a la funciones LONG, SHORT y SNOW BALL para la gestión de volumen
@@ -116,10 +115,10 @@ class PosicionLong:
     # Metodo de Snow ball
     def snow_ball(self,
         precio_long: float,
-        monedas: float,
-        cant_ree: int,
         monto_sl: float,
+        cant_ree: int,
         porcentaje_ree: float,
+        monedas: float,
         porcentaje_vol: int = 0,
         cantidad_usdt_long: float = None,
         gestion_volumen: str = "MARTINGALA" # "% DE REENTRADAS", "MARTINGALA", "AGRESIVO"
@@ -284,10 +283,10 @@ class PosicionShort:
     # Metodo de Snow ball
     def snow_ball(self,
         precio_short: float,
-        monedas: float,
-        cant_ree: int,
         monto_sl: float,
+        cant_ree: int,
         porcentaje_ree: float,
+        monedas: float,
         porcentaje_vol: int = 0,
         cantidad_usdt_short: float = None,
         gestion_volumen: str = "MARTINGALA" # "% DE REENTRADAS", "MARTINGALA", "AGRESIVO"
@@ -393,15 +392,6 @@ if __name__ == "__main__":
                 "gestion_take_profit": "RATIO BENEFICIO/PERDIDA", # "% TAKE PROFIT" - "LCD (Carga y Descarga)"
                 "ratio": 2
                 }
-    #"""
-    # Empleando el modulo Entrada_de_datos
-
-    #Datos_calculados = PosicionLong(entrada_de_datos())
-    #Datos_calculados = PosicionShort(entrada_de_datos())
-
-    # Empleando el diccionario de ensayo
-
-    # Long
     """
     PosLong = PosicionLong()
     pprint.pprint(PosLong.recompras(
