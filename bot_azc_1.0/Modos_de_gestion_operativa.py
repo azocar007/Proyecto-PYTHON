@@ -50,7 +50,7 @@ class PosicionLong:
 
         # Definiendo el valor N/A de monedas
         if monedas == "N/A":
-            monedas = cantidad_usdt_long / precio 
+            monedas = cantidad_usdt_long / precio
 
         # Definiendo valores iniciales de las listas
         list_reentradas = [precio]
@@ -109,14 +109,14 @@ class PosicionLong:
                 "positionside": "LONG",
                 "gestion de volumen": gestion_volumen,
                 "type": "LIMIT",
-                "Prices": list_reentradas,
-                "Precios promedios": precios_prom,
-                "Precios de stop loss": precios_stop_loss,
-                "Precio de stop loss": precios_stop_loss[-1],
+                "prices": list_reentradas,
+                "precios promedios": precios_prom,
+                "precios de stop loss": precios_stop_loss,
+                "precio de stop loss": precios_stop_loss[-1],
                 "quantitys": vol_monedas,
-                "Volumen monedas total": vol_acum,
-                "Volumen USDT total": vol_usdt_total,
-                "Mensaje": mensj}
+                "volumen monedas total": vol_acum,
+                "volumen USDT total": vol_usdt_total,
+                "mensaje": mensj}
 
     # Metodo de Snow ball
     def snow_ball(self,

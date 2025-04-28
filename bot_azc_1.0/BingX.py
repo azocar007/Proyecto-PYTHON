@@ -752,8 +752,8 @@ class BingX:
                     )
 
                     positions = self.get_open_position()
-                precio = positions["LONG"]["avgPrice"]
-                monedas = positions["LONG"]["positionAmt"]
+                precio = float(positions["LONG"]["avgPrice"])
+                monedas = float(positions["LONG"]["positionAmt"])
                 data = PosLong.recompras(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
 
             elif positionside == "SHORT":
@@ -776,8 +776,8 @@ class BingX:
                     )
 
                     positions = self.get_open_position()
-                precio = positions["SHORT"]["avgPrice"]
-                monedas = positions["SHORT"]["positionAmt"]
+                precio = float(positions["SHORT"]["avgPrice"])
+                monedas = float(positions["SHORT"]["positionAmt"])
                 data = PosShort.recompras(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
 
             # Datos del diccionario para armar las ordenes
@@ -824,8 +824,8 @@ class BingX:
                     )
                     # resto de entradas
                     positions = self.get_open_position()
-                precio = positions["LONG"]["avgPrice"]
-                monedas = positions["LONG"]["positionAmt"]
+                precio = float(positions["LONG"]["avgPrice"])
+                monedas = float(positions["LONG"]["positionAmt"])
                 data = PosLong.snow_ball(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
 
             elif positionside == "SHORT":
@@ -849,8 +849,8 @@ class BingX:
 
                     # resto de entradas
                     positions = self.get_open_position()
-                precio = positions["SHORT"]["avgPrice"]
-                monedas = positions["SHORT"]["positionAmt"]
+                precio = float(positions["SHORT"]["avgPrice"])
+                monedas = float(positions["SHORT"]["positionAmt"])
                 data = PosShort.snow_ball(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
 
             # Datos del diccionario para armar las ordenes
@@ -924,7 +924,7 @@ if __name__ == "__main__":
                 "gestion_vol": "MARTINGALA",
                 "cant_ree": 5,
                 "dist_ree": 2,
-                "porcentaje_vol_ree": 50,
+                "porcentaje_vol_ree": 0,
                 "monedas": 40,
                 "usdt": 10,
                 "segundos": 5,
@@ -950,7 +950,11 @@ if __name__ == "__main__":
     #bingx.set_cancel_order(symbol, direccion) # Cancelar ordenes limit
     #bingx.set_limit_market_order(datos) # Enviar ordenes
 
+    bingx.set_limit_market_order()
+
+    """
     try:
         bingx.monitor_open_positions()
     except KeyboardInterrupt:
         print("🛑 Bot detenido por el usuario")
+    """
