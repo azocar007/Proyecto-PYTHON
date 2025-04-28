@@ -728,10 +728,56 @@ class BingX:
 
         elif modo_gestion == "RECOMPRAS":
 
+            positions = self.get_open_position()
+            long_amt = float(positions["LONG"].get("positionAmt", 0))
+            short_amt = float(positions["SHORT"].get("positionAmt", 0))
+
             if positionside == "LONG":
+                if long_amt == 0:
+                    # 1ra entrada
+                    if monedas == 0 and usdt == 0:
+                        precio_sl = precio * (100 - dist_ree) / 100
+                        monedas = PosLong.vol_monedas(monto_sl, precio, precio_sl)
+                        monedas = monedas / cant_ree
+
+                    elif monedas == 0 and usdt != 0:
+                        monedas = usdt / precio
+
+                    self._limit_market_order(
+                    symbol = symbol,
+                    positionside = positionside,
+                    quantity = monedas,
+                    price = precio,
+                    type = type
+                    )
+
+                    positions = self.get_open_position()
+                precio = positions["LONG"]["avgPrice"]
+                monedas = positions["LONG"]["positionAmt"]
                 data = PosLong.recompras(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
 
             elif positionside == "SHORT":
+                if short_amt== 0:
+                    # 1ra entrada
+                    if monedas == 0 and usdt == 0:
+                        precio_sl = precio * (100 + dist_ree) / 100
+                        monedas = PosShort.vol_monedas(monto_sl, precio, precio_sl)
+                        monedas = monedas / cant_ree
+
+                    elif monedas == 0 and usdt != 0:
+                        monedas = usdt / precio
+
+                    self._limit_market_order(
+                    symbol = symbol,
+                    positionside = positionside,
+                    quantity = monedas,
+                    price = precio,
+                    type = type
+                    )
+
+                    positions = self.get_open_position()
+                precio = positions["SHORT"]["avgPrice"]
+                monedas = positions["SHORT"]["positionAmt"]
                 data = PosShort.recompras(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
 
             # Datos del diccionario para armar las ordenes
@@ -754,10 +800,57 @@ class BingX:
 
         else: # modo_gestion == "SNOW BALL"
 
+            positions = self.get_open_position()
+            long_amt = float(positions["LONG"].get("positionAmt", 0))
+            short_amt = float(positions["SHORT"].get("positionAmt", 0))
+
             if positionside == "LONG":
+                if long_amt == 0:
+                    # 1ra entrada
+                    if monedas == 0 and usdt == 0:
+                        precio_sl = precio * (100 - dist_ree) / 100
+                        monedas = PosLong.vol_monedas(monto_sl, precio, precio_sl)
+                        monedas = monedas / cant_ree
+
+                    elif monedas == 0 and usdt != 0:
+                        monedas = usdt / precio
+
+                    self._limit_market_order(
+                    symbol = symbol,
+                    positionside = positionside,
+                    quantity = monedas,
+                    price = precio,
+                    type = type
+                    )
+                    # resto de entradas
+                    positions = self.get_open_position()
+                precio = positions["LONG"]["avgPrice"]
+                monedas = positions["LONG"]["positionAmt"]
                 data = PosLong.snow_ball(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
 
             elif positionside == "SHORT":
+                if short_amt == 0:
+                    # 1ra entrada
+                    if monedas == 0 and usdt == 0:
+                        precio_sl = precio * (100 + dist_ree) / 100
+                        monedas = PosShort.vol_monedas(monto_sl, precio, precio_sl)
+                        monedas = monedas / cant_ree
+
+                    elif monedas == 0 and usdt != 0:
+                        monedas = usdt / precio
+
+                    self._limit_market_order(
+                    symbol = symbol,
+                    positionside = positionside,
+                    quantity = monedas,
+                    price = precio,
+                    type = type
+                    )
+
+                    # resto de entradas
+                    positions = self.get_open_position()
+                precio = positions["SHORT"]["avgPrice"]
+                monedas = positions["SHORT"]["positionAmt"]
                 data = PosShort.snow_ball(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
 
             # Datos del diccionario para armar las ordenes

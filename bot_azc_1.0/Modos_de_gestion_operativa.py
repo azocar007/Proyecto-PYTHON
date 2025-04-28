@@ -92,9 +92,15 @@ class PosicionLong:
         # Eliminando elementos que sobran en las listas
         vol_monedas.pop()
         list_reentradas.pop()
+        vol_monedas.pop(0)
+        list_reentradas.pop(0)
+        vol_usdt.pop(0)
+        precios_prom.pop(0)
+        precios_stop_loss.pop(0)
+        # Resultados totales
         vol_acum = sum(vol_monedas)
         vol_usdt_total = vol_acum * precios_prom[-1]
-        if cant_ree > len(list_reentradas):
+        if (cant_ree + 1) > len(list_reentradas):
             mensj = "Cantidad de entradas solicitadas es mayor a las calculadas."
         else:
             mensj = "Cantidad de entradas acorde a lo establecido"
@@ -165,8 +171,15 @@ class PosicionLong:
             list_reent_long.append(precio_long)
             precios_prom_long.append(prom_long)
             precios_stop_loss_long.append(precio_sl_long)
+        # Eliminando elementos que sobran en las listas
         vol_monedas.pop()
         list_reent_long.pop()
+        vol_monedas.pop(0)
+        list_reent_long.pop(0)
+        vol_usdt_long.pop(0)
+        precios_prom_long.pop(0)
+        precios_stop_loss_long.pop(0)
+        # Resultados totales
         vol_acum = sum(vol_monedas)
 
         return {"modo_gest": "SNOW BALL",
@@ -260,9 +273,15 @@ class PosicionShort:
         # Eliminando elementos que sobran en las listas
         vol_monedas.pop()
         list_reentradas.pop()
+        vol_monedas.pop(0)
+        list_reentradas.pop(0)
+        vol_usdt.pop(0)
+        precios_prom.pop(0)
+        precios_stop_loss.pop(0)
+        # Resultados totales
         vol_acum = sum(vol_monedas)
         vol_usdt_total = vol_acum * precios_prom[-1]
-        if cant_ree > len(list_reentradas):
+        if (cant_ree + 1) > len(list_reentradas):
             mensj = "Cantidad de entradas solicitadas es mayor a las calculadas."
         else:
             mensj = "Cantidad de entradas acorde a lo establecido"
@@ -332,8 +351,15 @@ class PosicionShort:
             list_reent_short.append(precio_short)
             precios_prom_short.append(prom_short)
             precios_stop_loss_short.append(precio_sl_short)
+        # Eliminando elementos que sobran en las listas
         vol_monedas.pop()
         list_reent_short.pop()
+        vol_monedas.pop(0)
+        list_reent_short.pop(0)
+        vol_usdt_short.pop(0)
+        precios_prom_short.pop(0)
+        precios_stop_loss_short.pop(0)
+        # Resultados totales        
         vol_acum = sum(vol_monedas)
 
         return {"modo_gest": "SNOW BALL",
@@ -392,7 +418,7 @@ if __name__ == "__main__":
                 "gestion_take_profit": "RATIO BENEFICIO/PERDIDA", # "% TAKE PROFIT" - "LCD (Carga y Descarga)"
                 "ratio": 2
                 }
-    """
+    
     PosLong = PosicionLong()
     pprint.pprint(PosLong.recompras(
                                     precio = 0.16421,
@@ -417,7 +443,7 @@ if __name__ == "__main__":
                                     porcentaje_vol = 50,
                                     gestion_volumen = "% DE REENTRADAS",
                                     ))
-    """
+    
 
     # Short
     """
