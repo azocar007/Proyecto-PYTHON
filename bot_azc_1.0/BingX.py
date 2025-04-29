@@ -224,6 +224,47 @@ class BingX:
                     }
         return {"LONG": long_position, "SHORT": short_position}
 
+    # Función para mantener el monto de las monedas iniciales
+    def monedas_de_entrada(self, positionside: str):
+        # Variables
+        monto_sl = self.monto_sl
+        cant_ree = self.cant_ree
+        dist_ree = self.dist_ree
+        monedas = self.monedas
+        usdt = self.usdt
+        porcentaje_vol_ree = self.porcentaje_vol_ree
+        gestion_vol = self.gestion_vol
+        # Estas variables vienen de la funcion strategy
+        precio = self.precio_entrada
+        precio_sl = self.precio_sl
+
+        if monedas == 0 and usdt == 0 and positionside == "LONG":
+            precio_sl = precio * (100 - dist_ree) / 100
+            monedas = PosLong.vol_monedas(monto_sl, precio, precio_sl)
+            monedas = monedas / cant_ree
+            data = PosLong.recompras(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
+            return {"monedas": float(monedas), "cant_ree": int(len(data["quantitys"]))}
+
+        elif monedas == 0 and usdt == 0 and positionside == "SHORT":
+            precio_sl = precio * (100 + dist_ree) / 100
+            monedas = PosShort.vol_monedas(monto_sl, precio, precio_sl)
+            monedas = monedas / cant_ree
+            data = PosShort.recompras(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
+            return {"monedas": float(monedas), "cant_ree": int(len(data["quantitys"]))}
+
+        elif monedas == 0 and usdt != 0 and positionside == "LONG":
+            monedas = usdt / precio
+            data = PosLong.recompras(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
+            return {"monedas": float(monedas), "cant_ree": int(len(data["quantitys"]))}
+
+        elif monedas == 0 and usdt != 0 and positionside == "SHORT":
+            monedas = usdt / precio
+            data = PosShort.recompras(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
+            return {"monedas": float(monedas), "cant_ree": int(len(data["quantitys"]))}
+
+        else:
+            return {"monedas": float(monedas), "cant_ree": cant_ree}
+
     # Metodo para gestionar el stop loss
     def dynamic_sl_manager(self, symbol: str, positionside: str):
 
@@ -322,11 +363,54 @@ class BingX:
             else:
                 print("🔴 Take Profit en SHORT está correcto.\n")
 
+    """ Metodo para gestionar las reentradas """
+    def dynamic_reentradas_manager(self, symbol: str, positionside: str, modo_gestion: str):
+
+        posiciones = self.get_open_position()
+        long_amt = float(posiciones["LONG"].get("positionAmt", 0))
+        short_amt = float(posiciones["SHORT"].get("positionAmt", 0))
+        datos_iniciales = self.monedas_de_entrada(positionside)
+        monedas_iniciales = datos_iniciales["monedas"]
+        cant_ree = datos_iniciales["cant_ree"]
+
+        if positionside == "LONG" and long_amt > 0 and modo_gestion == "REENTRADAS":
+            orders = self.get_current_open_orders("LIMIT")
+            list_rl = orders["long_amt_orders"] # lista de montos de las reentradas LONG
+
+            if not list_rl and long_amt == monedas_iniciales:
+                print("🟢 Posición LONG no tiene reentradas. Colocando...\n")
+                self.set_limit_market_order(symbol, positionside, modo_gestion)
+
+            elif cant_ree > len(list_rl) and long_amt == monedas_iniciales:
+                print("🟢 Ajustando la posición LONG a la cantidad de reentradas correctas...\n")
+                self.set_cancel_order("LIMIT")
+                self.set_limit_market_order(symbol, positionside, modo_gestion)
+
+            else:
+                print("🟢 Posición LONG ya tiene las reentradas correctas.\n")
+
+        elif positionside == "SHORT" and short_amt > 0:
+            orders = self.get_current_open_orders("STOP_MARKET")
+            list_rs = orders["short_amt_orders"]
+
+            if not list_rs and short_amt == monedas_iniciales:
+                print("🔴 Posición SHORT no tiene reentradas. Colocando...\n")
+                self.set_limit_market_order(symbol, positionside, modo_gestion)
+
+            elif cant_ree > len(list_rs) and short_amt == monedas_iniciales:
+                print("🟢 Ajustando la posición SHORT a la cantidad de reentradas correctas...\n")
+                self.set_cancel_order("LIMIT")
+                self.set_limit_market_order(symbol, positionside, modo_gestion)
+
+            else:
+                print("🔴 Posición SHORT ya tiene las reentradas correctas.\n")
+
     # Metodo para monitorear las posiciones de un activo en tiempo.
     def monitor_open_positions(self):
         # Variables de control para monitoreo
         symbol = self.symbol
         positionside = self.positionside
+        modo_gestion = self.modo_gestion
         seg = self.segundos_monitoreo
         interval = self.temporalidad
 
@@ -357,6 +441,7 @@ class BingX:
                 elif positionside == "SHORT":
                     indicador = "🔴"
                 else:
+                    indicador = "🟢 🔴"
                     print("\nATENCIÓN, NO SE COLOCO LA DIRECCIÓN CORRECTA PARA LA EJECUCIÓN DEL BOT")
 
                 print(f"📊 Posiciones abiertas: {positions}.\nMonitoreando posición 🔍 {indicador} {positionside.upper()}, cada {seg} segundos.\n")
@@ -364,10 +449,12 @@ class BingX:
                 if positionside == "LONG" and float(positions["LONG"].get("positionAmt", 0)) > 0:
                     self.dynamic_sl_manager(symbol, positionside)
                     self.dynamic_tp_manager(symbol, positionside)
+                    self.dynamic_reentradas_manager(symbol, positionside, modo_gestion)
 
                 elif positionside == "SHORT" and float(positions["SHORT"].get("positionAmt", 0)) > 0:
                     self.dynamic_sl_manager(symbol, positionside)
                     self.dynamic_tp_manager(symbol, positionside)
+                    self.dynamic_reentradas_manager(symbol, positionside, modo_gestion)
 
                 else: # Si no hay posiciones abiertas, iniciar el WebSocket para recibir datos en tiempo real
                     print(f"No hay posición abierta en {positionside}.\n⌛ Esperando señal para abrir posición con Websocket...")
@@ -383,6 +470,7 @@ class BingX:
     def get_current_open_orders(self, type: str = None):
         # Variables de control
         symbol = self.symbol
+        type = type.upper()
         """ A continuación se muestran los tipos admitidos para type
                 LIMIT: Limit Order
                 MARKET: Market Order
@@ -408,27 +496,35 @@ class BingX:
         short_amt_ordersId = []
         short_price_ordersId = []
 
+        #pprint.pprint(data["data"]["orders"])
+
         for order in data.get("data", {}).get("orders", []):
             if symbol and order.get("symbol") != symbol:
                 continue
+
+            if type == "LIMIT":
+                price_ordersId = order["price"]
+            else:
+                price_ordersId = order["stopPrice"]
+
             if order.get("positionSide") == "LONG":
                 long_ordersId.append(order["orderId"])
                 long_amt_ordersId.append(float(order["origQty"]))
-                long_price_ordersId.append(float(order["stopPrice"]))
+                long_price_ordersId.append(float(price_ordersId))
             elif order.get("positionSide") == "SHORT":
                 short_ordersId.append(order["orderId"])
                 short_amt_ordersId.append(float(order["origQty"]))
-                short_price_ordersId.append(float(order["stopPrice"]))
+                short_price_ordersId.append(float(price_ordersId))
 
-        if type == "STOP_MARKET":
+        if type == "STOP_MARKET":           # Funciona OK
             mensaje = "STOP LOSS"
-        elif type == "TAKE_PROFIT":
+        elif type == "TAKE_PROFIT":         # Funciona OK
             mensaje = "TAKE PROFIT LIMIT"
-        elif type == "TAKE_PROFIT_MARKET":
+        elif type == "TAKE_PROFIT_MARKET":  # Funciona OK
             mensaje = "TAKE PROFIT MARKET"
-        elif type == "LIMIT":
+        elif type == "LIMIT":               # Funciona OK
             mensaje = "Total ordenes LIMIT"
-        elif type == "TRIGGER_MARKET":
+        elif type == "TRIGGER_MARKET":      # Funciona OK
             mensaje = "Total ordenes TRIGGER"
         else:
             mensaje = "Total ordenes"
@@ -437,13 +533,15 @@ class BingX:
         if len(long_ordersId) == 0:
             print("No hay órdenes abiertas en LONG.")
         else:
-            print({"long_ordersId": long_price_ordersId, "montos": long_amt_ordersId})
+            for ordersId, price_orders, amt_ordersId in zip(long_ordersId, long_price_ordersId, long_amt_ordersId):
+                print(f"Orden pendiente: {ordersId}, {price_orders}, {amt_ordersId}")
 
         print(f"🔴 {mensaje} SHORT: {len(short_ordersId)}")
         if len(short_ordersId) == 0:
             print("No hay órdenes abiertas en SHORT.")
         else:
-            print({"short_ordersId": short_price_ordersId, "montos": short_amt_ordersId})
+            for ordersId, price_orders, amt_ordersId in zip(short_ordersId, short_price_ordersId, short_amt_ordersId):
+                print(f"Orden pendiente: {ordersId}, {price_orders}, {amt_ordersId}")
 
         return {
             "symbol": symbol,
@@ -693,11 +791,8 @@ class BingX:
         return self._send_request("POST", "/openApi/swap/v2/trade/order", params)
 
     # Metodo para crear una posicion limit
-    def set_limit_market_order(self):
+    def set_limit_market_order(self, symbol: str, positionside: str, modo_gestion: str):
         # Variables generales
-        symbol = self.symbol
-        positionside = self.positionside
-        modo_gestion = self.modo_gestion
         type = self.type # "LIMIT" o "MARKET" o "TRIGGER_MARKET"
         monto_sl = self.monto_sl
         cant_ree = self.cant_ree
@@ -726,7 +821,7 @@ class BingX:
                 )
             return self.get_current_open_orders("LIMIT")
 
-        elif modo_gestion == "RECOMPRAS":
+        elif modo_gestion == "REENTRADAS":
 
             positions = self.get_open_position()
             long_amt = float(positions["LONG"].get("positionAmt", 0))
@@ -734,14 +829,7 @@ class BingX:
 
             if positionside == "LONG":
                 if long_amt == 0:
-                    # 1ra entrada
-                    if monedas == 0 and usdt == 0:
-                        precio_sl = precio * (100 - dist_ree) / 100
-                        monedas = PosLong.vol_monedas(monto_sl, precio, precio_sl)
-                        monedas = monedas / cant_ree
-
-                    elif monedas == 0 and usdt != 0:
-                        monedas = usdt / precio
+                    monedas = self.monedas_de_entrada(positionside)
 
                     self._limit_market_order(
                     symbol = symbol,
@@ -758,14 +846,7 @@ class BingX:
 
             elif positionside == "SHORT":
                 if short_amt== 0:
-                    # 1ra entrada
-                    if monedas == 0 and usdt == 0:
-                        precio_sl = precio * (100 + dist_ree) / 100
-                        monedas = PosShort.vol_monedas(monto_sl, precio, precio_sl)
-                        monedas = monedas / cant_ree
-
-                    elif monedas == 0 and usdt != 0:
-                        monedas = usdt / precio
+                    monedas = self.monedas_de_entrada(positionside)
 
                     self._limit_market_order(
                     symbol = symbol,
@@ -915,7 +996,7 @@ if __name__ == "__main__":
     entradas = {
                 "symbol": "doge",
                 "positionside": "LONG",
-                "modo_gestion": "RECOMPRAS",
+                "modo_gestion": "REENTRADAS",
                 "monto_sl": 2,
                 "type": "LIMIT",
                 "precio_entrada": 0,
@@ -943,14 +1024,13 @@ if __name__ == "__main__":
     #bingx.max_apalancamiento(symbol)
 
     """ Operaciones en la cuenta """
-    #print("\nPosición abierta:", bingx.get_open_position(symbol))
-    #pprint.pprint({"Ultima vela cerrada del activo": bingx.get_last_candles(symbol, "5m")})
-    #bingx.start_websocket(symbol, temporalidad)
-    #ordenes_abiertas = bingx.get_current_open_orders(symbol, "TAKE_PROFIT")
-    #bingx.set_cancel_order(symbol, direccion) # Cancelar ordenes limit
-    #bingx.set_limit_market_order(datos) # Enviar ordenes
+    #bingx.get_open_position()
+    #bingx.get_last_candles(interval = "5m")
+    #bingx.start_websocket()
+    #bingx.get_current_open_orders(type = "limit")
+    #bingx.set_cancel_order(type = "LIMIT") # Cancelar ordenes LIMIT, MARKET, TRIGGER
+    #bingx.set_limit_market_order() # Enviar ordenes
 
-    bingx.set_limit_market_order()
 
     """
     try:
