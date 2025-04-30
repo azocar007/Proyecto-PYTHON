@@ -243,27 +243,32 @@ class BingX:
             monedas = PosLong.vol_monedas(monto_sl, precio, precio_sl)
             monedas = monedas / cant_ree
             data = PosLong.recompras(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
-            return {"monedas": float(monedas), "cant_ree": int(len(data["quantitys"]))}
+            return {"monedas": float(monedas), "cant_ree": int(len(data["prices"]))}
 
         elif monedas == 0 and usdt == 0 and positionside == "SHORT":
             precio_sl = precio * (100 + dist_ree) / 100
             monedas = PosShort.vol_monedas(monto_sl, precio, precio_sl)
             monedas = monedas / cant_ree
             data = PosShort.recompras(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
-            return {"monedas": float(monedas), "cant_ree": int(len(data["quantitys"]))}
+            return {"monedas": float(monedas), "cant_ree": int(len(data["prices"]))}
 
         elif monedas == 0 and usdt != 0 and positionside == "LONG":
             monedas = usdt / precio
             data = PosLong.recompras(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
-            return {"monedas": float(monedas), "cant_ree": int(len(data["quantitys"]))}
+            return {"monedas": float(monedas), "cant_ree": int(len(data["prices"]))}
 
         elif monedas == 0 and usdt != 0 and positionside == "SHORT":
             monedas = usdt / precio
             data = PosShort.recompras(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
-            return {"monedas": float(monedas), "cant_ree": int(len(data["quantitys"]))}
+            return {"monedas": float(monedas), "cant_ree": int(len(data["prices"]))}
 
         else:
-            return {"monedas": float(monedas), "cant_ree": cant_ree}
+            if positionside == "LONG":
+                data = PosLong.recompras(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
+                return {"monedas": float(monedas), "cant_ree": int(len(data["prices"]))}
+            else: # positionside == "SHORT"
+                data = PosShort.recompras(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
+                return {"monedas": float(monedas), "cant_ree": int(len(data["prices"]))}
 
     # Metodo para gestionar el stop loss
     def dynamic_sl_manager(self, symbol: str, positionside: str):
@@ -371,7 +376,8 @@ class BingX:
         short_amt = float(posiciones["SHORT"].get("positionAmt", 0))
         datos_iniciales = self.monedas_de_entrada(positionside)
         monedas_iniciales = datos_iniciales["monedas"]
-        cant_ree = datos_iniciales["cant_ree"]
+        cant_ree_real = datos_iniciales["cant_ree"]
+        print(f"Datos iniciales: {datos_iniciales}\n")
 
         if positionside == "LONG" and long_amt > 0 and modo_gestion == "REENTRADAS":
             orders = self.get_current_open_orders("LIMIT")
@@ -381,7 +387,7 @@ class BingX:
                 print("🟢 Posición LONG no tiene reentradas. Colocando...\n")
                 self.set_limit_market_order(symbol, positionside, modo_gestion)
 
-            elif cant_ree > len(list_rl) and long_amt == monedas_iniciales:
+            elif cant_ree_real > len(list_rl) and long_amt == monedas_iniciales:
                 print("🟢 Ajustando la posición LONG a la cantidad de reentradas correctas...\n")
                 self.set_cancel_order("LIMIT")
                 self.set_limit_market_order(symbol, positionside, modo_gestion)
@@ -389,7 +395,7 @@ class BingX:
             else:
                 print("🟢 Posición LONG ya tiene las reentradas correctas.\n")
 
-        elif positionside == "SHORT" and short_amt > 0:
+        elif positionside == "SHORT" and short_amt > 0 and modo_gestion == "REENTRADAS":
             orders = self.get_current_open_orders("STOP_MARKET")
             list_rs = orders["short_amt_orders"]
 
@@ -829,7 +835,8 @@ class BingX:
 
             if positionside == "LONG":
                 if long_amt == 0:
-                    monedas = self.monedas_de_entrada(positionside)
+                    datos = self.monedas_de_entrada(positionside)
+                    monedas = datos["monedas"]
 
                     self._limit_market_order(
                     symbol = symbol,
@@ -846,7 +853,8 @@ class BingX:
 
             elif positionside == "SHORT":
                 if short_amt== 0:
-                    monedas = self.monedas_de_entrada(positionside)
+                    datos = self.monedas_de_entrada(positionside)
+                    monedas = datos["monedas"]
 
                     self._limit_market_order(
                     symbol = symbol,
@@ -1003,11 +1011,11 @@ if __name__ == "__main__":
                 "gestion_take_profit": "RATIO BENEFICIO/PERDIDA",
                 "ratio": 2,
                 "gestion_vol": "MARTINGALA",
-                "cant_ree": 5,
+                "cant_ree": 6,
                 "dist_ree": 2,
                 "porcentaje_vol_ree": 0,
                 "monedas": 40,
-                "usdt": 10,
+                "usdt": 0,
                 "segundos": 5,
                 "temporalidad": "1m"
                 }
@@ -1030,11 +1038,12 @@ if __name__ == "__main__":
     #bingx.get_current_open_orders(type = "limit")
     #bingx.set_cancel_order(type = "LIMIT") # Cancelar ordenes LIMIT, MARKET, TRIGGER
     #bingx.set_limit_market_order() # Enviar ordenes
+    #bingx.dynamic_reentradas_manager("DOGE-USDT", entradas["positionside"], entradas["modo_gestion"])
+    #bingx._limit_market_order("DOGE-USDT", "LONG", 40, 0.15, "LIMIT")
 
-
-    """
+    #"""
     try:
         bingx.monitor_open_positions()
     except KeyboardInterrupt:
         print("🛑 Bot detenido por el usuario")
-    """
+    #"""
