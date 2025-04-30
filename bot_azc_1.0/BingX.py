@@ -1,6 +1,8 @@
 ### Modulo BingX ###
 
 import pprint
+import psutil
+import os
 import time
 import threading
 import hmac
@@ -35,6 +37,7 @@ class BingX:
         self.ws_running = False  # Controla si el WebSocket está activo
         self.position_opened_by_strategy = False  # Flag para control de entrada
 
+
         """ Variables de calculo predefinidas para el metodo check_strategy()"""
         self.last_price = None
         self.precio_sl = None
@@ -59,6 +62,27 @@ class BingX:
         self.usdt = float(self.dict["usdt"])
         self.segundos_monitoreo = int(self.dict["segundos"]) if "segundos" in self.dict else 5
         self.temporalidad = str(self.dict["temporalidad"]) if "temporalidad" in self.dict else "1m"
+
+    def MonitorMemoria(self, intervalo=1):
+        self.proceso = psutil.Process(os.getpid())
+        self.intervalo = intervalo
+        self._detener = threading.Event()
+        self._hilo = threading.Thread(target=self._monitor, daemon=True)
+
+        def _monitor(self):
+            while not self._detener.is_set():
+                memoria = self.proceso.memory_info().rss / 1024 / 1024
+                print(f"[MONITOR] Memoria usada: {memoria:.2f} MB")
+                time.sleep(self.intervalo)
+
+        def iniciar(self):
+            if not self._hilo.is_alive():
+                self._hilo.start()
+
+        def detener(self):
+            self._detener.set()
+            self._hilo.join()
+
 
 
     """ METODOS PARA OBETENER INFORMACION DE LA CUENTA Y DEL ACTIVO """
@@ -235,9 +259,20 @@ class BingX:
         porcentaje_vol_ree = self.porcentaje_vol_ree
         gestion_vol = self.gestion_vol
         # Estas variables vienen de la funcion strategy
-        precio = self.precio_entrada
         precio_sl = self.precio_sl
 
+        positions = self.get_open_position()
+        precio_long = float(positions["LONG"]["avgPrice"])
+        precio_short = float(positions["LONG"]["avgPrice"])
+
+        if positionside == "LONG" and precio_long > 0:
+            precio = precio_long
+        elif positionside == "SHORT" and precio_short > 0:
+            precio = precio_short
+        else:
+            precio = self.precio_entrada
+
+        """ Codigo de Abdias
         if monedas == 0 and usdt == 0 and positionside == "LONG":
             precio_sl = precio * (100 - dist_ree) / 100
             monedas = PosLong.vol_monedas(monto_sl, precio, precio_sl)
@@ -269,6 +304,26 @@ class BingX:
             else: # positionside == "SHORT"
                 data = PosShort.recompras(precio, monto_sl, cant_ree, dist_ree, monedas, porcentaje_vol_ree, usdt, gestion_vol)
                 return {"monedas": float(monedas), "cant_ree": int(len(data["prices"]))}
+    """
+
+        if positionside == "LONG":
+            Pos = PosLong
+            precio_sl = precio * (100 - dist_ree) / 100 if monedas == 0 and usdt == 0 else None
+        else:  # positionside == "SHORT"
+            Pos = PosShort
+            precio_sl = precio * (100 + dist_ree) / 100 if monedas == 0 and usdt == 0 else None
+
+        if monedas == 0:
+            if usdt == 0:
+                monedas = Pos.vol_monedas(monto_sl, precio, precio_sl)
+                monedas = monedas / cant_ree
+            else:
+                monedas = usdt / precio
+
+        data = Pos.recompras(precio, monto_sl, cant_ree, dist_ree, monedas,
+                            porcentaje_vol_ree, usdt, gestion_vol)
+
+        return {"monedas": float(monedas),"cant_ree": int(len(data["prices"]))}
 
     # Metodo para gestionar el stop loss
     def dynamic_sl_manager(self, symbol: str, positionside: str):
@@ -377,7 +432,6 @@ class BingX:
         datos_iniciales = self.monedas_de_entrada(positionside)
         monedas_iniciales = datos_iniciales["monedas"]
         cant_ree_real = datos_iniciales["cant_ree"]
-        print(f"Datos iniciales: {datos_iniciales}\n")
 
         if positionside == "LONG" and long_amt > 0 and modo_gestion == "REENTRADAS":
             orders = self.get_current_open_orders("LIMIT")
@@ -403,7 +457,7 @@ class BingX:
                 print("🔴 Posición SHORT no tiene reentradas. Colocando...\n")
                 self.set_limit_market_order(symbol, positionside, modo_gestion)
 
-            elif cant_ree > len(list_rs) and short_amt == monedas_iniciales:
+            elif cant_ree_real > len(list_rs) and short_amt == monedas_iniciales:
                 print("🟢 Ajustando la posición SHORT a la cantidad de reentradas correctas...\n")
                 self.set_cancel_order("LIMIT")
                 self.set_limit_market_order(symbol, positionside, modo_gestion)
@@ -1005,7 +1059,7 @@ if __name__ == "__main__":
                 "symbol": "doge",
                 "positionside": "LONG",
                 "modo_gestion": "REENTRADAS",
-                "monto_sl": 2,
+                "monto_sl": 1.0,
                 "type": "LIMIT",
                 "precio_entrada": 0,
                 "gestion_take_profit": "RATIO BENEFICIO/PERDIDA",
