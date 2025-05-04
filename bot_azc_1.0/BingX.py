@@ -1,7 +1,6 @@
 ### Modulo BingX ###
 
 import pprint
-import psutil
 import os
 import time
 import threading
@@ -10,6 +9,7 @@ import hashlib
 import json
 import gzip
 import io
+import psutil
 import websocket
 import requests
 import Modos_de_gestion_operativa as mgo
@@ -36,6 +36,7 @@ class BingX:
         self.ws = None
         self.ws_running = False  # Controla si el WebSocket está activo
         self.position_opened_by_strategy = False  # Flag para control de entrada
+        self._detener_monitor = threading.Event()
 
 
         """ Variables de calculo predefinidas para el metodo check_strategy()"""
@@ -43,6 +44,7 @@ class BingX:
         self.precio_sl = None
         self.entrada_long = None
         self.entrada_short = None
+
 
         """ Variables de entrada """
         self.dict = dict
@@ -63,26 +65,21 @@ class BingX:
         self.segundos_monitoreo = int(self.dict["segundos"]) if "segundos" in self.dict else 5
         self.temporalidad = str(self.dict["temporalidad"]) if "temporalidad" in self.dict else "1m"
 
-    def MonitorMemoria(self, intervalo=1):
-        self.proceso = psutil.Process(os.getpid())
-        self.intervalo = intervalo
-        self._detener = threading.Event()
-        self._hilo = threading.Thread(target=self._monitor, daemon=True)
+    # Metodo para monitoraer el uso de memoria del proceso
+    def _monitor_memoria(self):
+        proceso = psutil.Process(os.getpid())
+        while not self._detener_monitor.is_set():
+            memoria = proceso.memory_info().rss / 1024 / 1024
+            print(f"[MONITOR] Memoria usada: {memoria:.2f} MB\n")
+            time.sleep(self.segundos_monitoreo)
 
-        def _monitor(self):
-            while not self._detener.is_set():
-                memoria = self.proceso.memory_info().rss / 1024 / 1024
-                print(f"[MONITOR] Memoria usada: {memoria:.2f} MB")
-                time.sleep(self.intervalo)
+    def _iniciar_monitor(self):
+        self._hilo_monitor = threading.Thread(target=self._monitor_memoria, daemon=True)
+        self._hilo_monitor.start()
 
-        def iniciar(self):
-            if not self._hilo.is_alive():
-                self._hilo.start()
-
-        def detener(self):
-            self._detener.set()
-            self._hilo.join()
-
+    def _detener_monitoring(self):
+        self._detener_monitor.set()
+        self._hilo_monitor.join()
 
 
     """ METODOS PARA OBETENER INFORMACION DE LA CUENTA Y DEL ACTIVO """
@@ -307,21 +304,23 @@ class BingX:
     """
 
         if positionside == "LONG":
-            Pos = PosLong
+            pos = PosLong
             precio_sl = precio * (100 - dist_ree) / 100 if monedas == 0 and usdt == 0 else None
         else:  # positionside == "SHORT"
-            Pos = PosShort
+            pos = PosShort
             precio_sl = precio * (100 + dist_ree) / 100 if monedas == 0 and usdt == 0 else None
 
         if monedas == 0:
             if usdt == 0:
-                monedas = Pos.vol_monedas(monto_sl, precio, precio_sl)
+                monedas = pos.vol_monedas(monto_sl, precio, precio_sl)
                 monedas = monedas / cant_ree
             else:
                 monedas = usdt / precio
 
-        data = Pos.recompras(precio, monto_sl, cant_ree, dist_ree, monedas,
+        data = pos.recompras(precio, monto_sl, cant_ree, dist_ree, monedas,
                             porcentaje_vol_ree, usdt, gestion_vol)
+
+        #print(f"DEBUG - Cantidad de monedas: {monedas}, Cantidad de reentradas: {len(data['prices'])}\n")
 
         return {"monedas": float(monedas),"cant_ree": int(len(data["prices"]))}
 
@@ -423,7 +422,7 @@ class BingX:
             else:
                 print("🔴 Take Profit en SHORT está correcto.\n")
 
-    """ Metodo para gestionar las reentradas """
+    # Metodo para gestionar las reentradas
     def dynamic_reentradas_manager(self, symbol: str, positionside: str, modo_gestion: str):
 
         posiciones = self.get_open_position()
@@ -715,7 +714,7 @@ class BingX:
 
                 """ Aqui se debe colocar el gatillo de entrada y llama a set_limit_market_order() """
 
-                print("📉 Señal Long activada, entrada en LONG ejecutada! 🔥💰")
+                print("📉 Señal Long activada, entrada en LONG ejecutada! 🔥💰\n")
                 positions = self.get_open_position()
                 long_amt = float(positions["LONG"].get("positionAmt", 0))
                 if long_amt > 0:
@@ -728,7 +727,7 @@ class BingX:
 
                 """ Aqui se debe colocar el gatillo de entrada y llama a set_limit_market_order() """
 
-                print("📈 Señal Short activada, entrada en SHORT ejecutada! 🔥💰")
+                print("📈 Señal Short activada, entrada en SHORT ejecutada! 🔥💰\n")
                 positions = self.get_open_position()
                 short_amt = float(positions["SHORT"].get("positionAmt", 0))
                 if short_amt > 0:
@@ -1068,7 +1067,7 @@ if __name__ == "__main__":
                 "cant_ree": 6,
                 "dist_ree": 2,
                 "porcentaje_vol_ree": 0,
-                "monedas": 40,
+                "monedas": 0,
                 "usdt": 0,
                 "segundos": 5,
                 "temporalidad": "1m"
@@ -1097,6 +1096,7 @@ if __name__ == "__main__":
 
     #"""
     try:
+        bingx._iniciar_monitor()
         bingx.monitor_open_positions()
     except KeyboardInterrupt:
         print("🛑 Bot detenido por el usuario")
