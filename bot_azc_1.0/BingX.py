@@ -1067,7 +1067,7 @@ if __name__ == "__main__":
                 "cant_ree": 6,
                 "dist_ree": 2,
                 "porcentaje_vol_ree": 0,
-                "monedas": 0,
+                "monedas": 40,
                 "usdt": 0,
                 "segundos": 5,
                 "temporalidad": "1m"

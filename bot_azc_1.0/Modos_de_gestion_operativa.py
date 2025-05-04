@@ -1,6 +1,7 @@
 ### MODOS DE GESTION OPERATIVA ###
 import pprint
 from decimal import Decimal, ROUND_DOWN, ROUND_FLOOR
+import pandas as pd
 
 # Funciones anidades a la funciones LONG, SHORT y SNOW BALL para la gestión de volumen
 def gest_porcen_reentradas(monedas, porcentaje_vol):
@@ -31,6 +32,51 @@ def redondeo(valor: float, pip_valor: str) -> float:
     pip_decimal = Decimal(pip_str)
     valor_final = valor_decimal.quantize(pip_decimal, rounding=ROUND_FLOOR)
     return float(valor_final)
+
+# Función para convertir listas de velas a Data frame de pandas
+def conv_candles(candles: list) -> pd.DataFrame:
+
+    # Convertir la lista de velas a un DataFrame de pandas
+    df = pd.DataFrame(candles, columns=["open", "high", "low", "close", "volume", "time"])
+
+    # Convertir la columna de timestamp a un objeto datetime
+    df["time"] = pd.to_datetime(df["time"], unit="ms")
+
+    # Establecer la columna de timestamp como índice del DataFrame
+    df.set_index("time", inplace=True)
+
+    return df
+
+def conv_gpt(raw_candles: list) -> pd.DataFrame:
+
+    # Convertimos a DataFrame
+    df = pd.DataFrame(raw_candles)
+
+    # Renombramos columnas a formato estándar si es necesario
+    df.rename(columns={
+        'open': 'Open',
+        'high': 'High',
+        'low': 'Low',
+        'close': 'Close',
+        'volume': 'Volume',
+        'time': 'Time'
+    }, inplace=True)
+
+    # Convertimos los tipos a float y datetime
+    df['Open'] = df['Open'].astype(float)
+    df['High'] = df['High'].astype(float)
+    df['Low'] = df['Low'].astype(float)
+    df['Close'] = df['Close'].astype(float)
+    df['Volume'] = df['Volume'].astype(float)
+
+    # Convertimos 'Time' a datetime (milisegundos UNIX)
+    df['Time'] = pd.to_datetime(df['Time'], unit='ms')
+    df.set_index('Time', inplace=True)
+
+    # (Opcional) ordena por tiempo si viene al revés
+    df.sort_index(inplace=True)
+
+    return df
 
 
 # Clase para la gestión de posiciones LONG
