@@ -65,7 +65,7 @@ class BingX:
         self.segundos_monitoreo = int(self.dict["segundos"]) if "segundos" in self.dict else 5
         self.temporalidad = str(self.dict["temporalidad"]) if "temporalidad" in self.dict else "1m"
 
-    # Metodo para monitoraer el uso de memoria del proceso
+    """ Metodos para monitoraer el uso de memoria del proceso """
     def _monitor_memoria(self):
         proceso = psutil.Process(os.getpid())
         while not self._detener_monitor.is_set():
@@ -490,7 +490,7 @@ class BingX:
 
             try:
                 # Obtener información del activo
-                ult_vela = self.get_last_candles(interval)
+                ult_vela = self.get_last_candles(symbol, interval)
                 print(f"📈 Datos última vela:\n{ult_vela}")
 
                 # Comprobar si hay posiciones abiertas
@@ -613,9 +613,7 @@ class BingX:
         }
 
     # Metodo para obtener información de la ultima vela
-    def get_last_candles(self, interval: str = "1m", limit: int = 1):
-        # Variables de control
-        symbol = self.symbol
+    def get_last_candles(self, symbol: str, interval: str = "1m", limit: int = 1):
 
         url = f"{self.base_url}/openApi/swap/v3/quote/klines?symbol={symbol}&interval={interval}&limit={limit}"
         response = self.session.get(url)

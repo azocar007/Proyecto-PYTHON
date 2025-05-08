@@ -34,20 +34,7 @@ def redondeo(valor: float, pip_valor: str) -> float:
     return float(valor_final)
 
 # Función para convertir listas de velas a Data frame de pandas
-def conv_candles(candles: list) -> pd.DataFrame:
-
-    # Convertir la lista de velas a un DataFrame de pandas
-    df = pd.DataFrame(candles, columns=["open", "high", "low", "close", "volume", "time"])
-
-    # Convertir la columna de timestamp a un objeto datetime
-    df["time"] = pd.to_datetime(df["time"], unit="ms")
-
-    # Establecer la columna de timestamp como índice del DataFrame
-    df.set_index("time", inplace=True)
-
-    return df
-
-def conv_gpt(raw_candles: list) -> pd.DataFrame:
+def conv_candles(raw_candles: list) -> pd.DataFrame:
 
     # Convertimos a DataFrame
     df = pd.DataFrame(raw_candles)
@@ -489,7 +476,7 @@ if __name__ == "__main__":
                                     porcentaje_vol = 50,
                                     gestion_volumen = "% DE REENTRADAS",
                                     ))
-    
+
 
     # Short
     """
