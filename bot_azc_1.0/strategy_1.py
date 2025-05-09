@@ -2,13 +2,14 @@
 """ MODULO DE ESTRATEGIA 1: BB + VWAP + RSI """
 # ===== IMPORTS =====
 import pprint
+import os
+import datetime as dt
 import numpy as np
 import pandas as pd
 import ta
-import datetime as dt
-from datetime import datetime
 from backtesting import Backtest, Strategy
 from backtesting.lib import crossover
+import ta.trend
 
 import BingX
 import Modos_de_gestion_operativa as mgo
@@ -50,10 +51,11 @@ def get_velas_df(exchange, symbol, temporalidad, cantidad):
     elif exchange == "Phemex":
         pass
 
-    # Convertimos a DataFrame
-    df = pd.DataFrame(velas)
+    if not velas or not isinstance(velas, list):
+        print("No se recibieron velas.")
+        return
 
-    # Renombramos columnas a formato estándar si es necesario
+    df = pd.DataFrame(velas)
     df.rename(columns={
         'open': 'Open',
         'high': 'High',
@@ -63,94 +65,191 @@ def get_velas_df(exchange, symbol, temporalidad, cantidad):
         'time': 'Time'
     }, inplace=True)
 
-    # Convertimos los tipos a float y datetime
-    df['Open'] = df['Open'].astype(float)
-    df['High'] = df['High'].astype(float)
-    df['Low'] = df['Low'].astype(float)
-    df['Close'] = df['Close'].astype(float)
-    df['Volume'] = df['Volume'].astype(float)
-
-    # Convertimos 'Time' a datetime (milisegundos UNIX)
+    df[['Open', 'High', 'Low', 'Close', 'Volume']] = df[['Open', 'High', 'Low', 'Close', 'Volume']].astype(float)
     df['Time'] = pd.to_datetime(df['Time'], unit='ms')
     df.set_index('Time', inplace=True)
-
-    # (Opcional) ordena por tiempo si viene al revés
     df.sort_index(inplace=True)
 
-    print(f"Longitud del diccionario de velas {len(df)}")
-    print(df)
+    #print(f"Nuevas velas descargadas: {len(df)}")
+    #print(df)
 
-    # variables para nombre de archivo
-    fecha = dt.datetime.now().strftime('%Y-%m-%d')  # Formato YYYY-MM-DD
-    nombre_archivo = f"{exchange}_{symbol}_{temporalidad}_{fecha}_{cantidad}_velas.csv"
+    base_dir = "data_velas"
+    ruta = os.path.join(base_dir, exchange, symbol)
+    os.makedirs(ruta, exist_ok=True)
 
-    df.to_csv(nombre_archivo)  # Guardar el DataFrame en un archivo CSV
+    fecha = dt.datetime.now().strftime('%Y-%m-%d')
+    nombre_archivo = f"{exchange}_{symbol}_{temporalidad}_{fecha}_velas.csv"
+    archivo_completo = os.path.join(ruta, nombre_archivo)
 
-    return df
+    if os.path.exists(archivo_completo):
+        df_existente = pd.read_csv(archivo_completo, parse_dates=['Time'], index_col='Time')
+        total_antes = len(df_existente)
+        df_total = pd.concat([df_existente, df])
+        df_total = df_total[~df_total.index.duplicated(keep='last')]
+        df_total.sort_index(inplace=True)
+        total_despues = len(df_total)
+        nuevas_agregadas = total_despues - total_antes
+        df_total.to_csv(archivo_completo)
+        print(f"Archivo actualizado: {archivo_completo}")
+        print(f"→ Velas nuevas agregadas: {nuevas_agregadas}")
+        print(f"→ Total de velas en archivo: {total_despues}")
+    else:
+        df.to_csv(archivo_completo)
+        print(f"Archivo nuevo guardado: {archivo_completo}")
+        print(f"→ Velas guardadas: {len(df)}\n")
 
+exchange = "BingX"
+symbol = "SUI-USDT"
+temporalidad = "1m"
+cantidad = 1440
 
-""" Codigo de la estrategia CHATGPT """
+#get_velas_df(exchange, symbol, temporalidad, cantidad)
 
-# Creamos un script base para recibir velas, almacenar en CSV y aplicar estrategia
-def procesar_vela_nueva(vela, archivo='datos.csv'):
-    # Intentamos cargar el CSV existente
-    try:
-        df = pd.read_csv(archivo, parse_dates=['Time'], index_col='Time')
-    except FileNotFoundError:
-        df = pd.DataFrame()
+data = pd.read_csv("data_velas/BingX/SUI-USDT/BingX_SUI-USDT_1m_2025-05-09_velas.csv", parse_dates=['Time'], index_col='Time')
+#print("Los datos son:\n", data)
 
-    # Convertimos la nueva vela a DataFrame
-    nueva = pd.DataFrame([vela])
-    nueva['Time'] = pd.to_datetime(nueva['time'], unit='ms')
-    nueva = nueva.drop(columns='time')
-    nueva.columns = [col.capitalize() for col in nueva.columns]  # open → Open
-    nueva.set_index('Time', inplace=True)
-    nueva = nueva.astype(float)
+""" CLASES DE ESTRATEGIA PARA BACKTESTING """
 
-    # Concatenamos y eliminamos duplicados por índice (Time)
-    df = pd.concat([df, nueva])
-    df = df[~df.index.duplicated(keep='last')]
-    df.sort_index(inplace=True)
-
-    # Guardamos actualizado
-    df.to_csv(archivo)
-
-    # Aplicamos indicadores y estrategia
-    return aplicar_estrategia(df)
-
-def aplicar_estrategia(df):
-    from ta.momentum import RSIIndicator
-    from ta.volatility import BollingerBands
-    from ta.volume import VolumeWeightedAveragePrice
-
-    if len(df) < 20:
-        return None  # Esperar suficientes velas para indicadores
-
-    close = df['Close']
-    high = df['High']
-    low = df['Low']
-    volume = df['Volume']
-
+class MACD_MA_BB(Strategy):
     # Indicadores
-    rsi = RSIIndicator(close).rsi()
-    bb = BollingerBands(close, window=20, window_dev=2)
-    vwap = VolumeWeightedAveragePrice(high, low, close, volume).vwap()
+    macd = None
+    sma = None
+    bb = None
+    # Parámetros de los indicadores
+    macd_fast = 10
+    macd_slow = 20
+    macd_signal = 10
+    sma_period = 200
+    bb_period = 20
+    bb_std_dev = 2
 
-    # Condiciones actuales (última vela)
-    precio = close.iloc[-1]
-    rsi_val = rsi.iloc[-1]
-    vwap_val = vwap.iloc[-1]
-    bb_lower = bb.bollinger_lband().iloc[-1]
+    def init(self):
+        # Inicializar indicadores
+        #self.macd = self.I(ta.trend.MACD, self.data.Close, window_slow=self.macd_slow, window_fast=self.macd_fast, window_sign=self.macd_signal)
+        self.sma = self.I(lambda x: ta.trend.SMAIndicator(pd.Series(x), window=self.sma_period).sma_indicator().values, self.data.Close)
+        #self.bb = self.I(ta.volatility.BollingerBands, self.data.Close, window=self.bb_period, window_dev=self.bb_std_dev)
 
-    # Lógica de entrada
-    if precio <= bb_lower and precio < vwap_val and rsi_val < 40:
-        return 'long'
+    def next(self):
+        # Lógica de trading aquí
+        price = self.data.Close[-1]
 
-    return None
+        if price > self.sma[-1] and not self.position.is_long:
+            # Señal de compra
+            self.buy()
+        elif price < self.sma[-1] and not self.position.is_long:
+            # Señal de venta
+            self.position.close()
 
+class Long_SMA_MACD_BB(Strategy):
+    # Indicadores
+    sma = None
+    macd = None
+    bb_hband = None
+    bb_middle = None
+    bb_lband = None
 
+    # Parámetros de los indicadores
+    sma_period = 200
+    macd_fast = 10
+    macd_slow = 20
+    macd_signal = 10
+    bb_period = 20
+    bb_std_dev = 1
 
+    def init(self):
+        """Indicadores de la estrategia"""
+        # Media movil
+        self.sma = self.I(lambda x: ta.trend.SMAIndicator(pd.Series(x), window = self.sma_period).sma_indicator().values, self.data.Close)
 
+        # MACD
+        self.macd, self.macd_signal = self.I(
+            lambda x: (
+                ta.trend.MACD(pd.Series(x), window_slow = self.macd_slow, window_fast = self.macd_fast, window_sign = self.macd_signal).macd().values,
+                ta.trend.MACD(pd.Series(x), window_slow = self.macd_slow, window_fast = self.macd_fast, window_sign = self.macd_signal).macd_signal().values
+            ), self.data.Close)
+
+        # Bandas de Bollinger
+        self.bb_hband = self.I(
+            lambda x: ta.volatility.BollingerBands(pd.Series(x), window = self.bb_period, window_dev = self.bb_std_dev).bollinger_hband().values,
+            self.data.Close)
+
+        self.bb_middle = self.I(
+            lambda x: ta.volatility.BollingerBands(pd.Series(x), window = self.bb_period, window_dev = self.bb_std_dev).bollinger_mavg().values,
+            self.data.Close)
+
+        self.bb_lband = self.I(
+            lambda x: ta.volatility.BollingerBands(pd.Series(x), window = self.bb_period, window_dev = self.bb_std_dev).bollinger_lband().values,
+            self.data.Close)
+
+    def next(self):
+        price = self.data.Close[-1]
+        b_boll = self.bb_hband[-1]
+
+        if (
+            price > self.sma[-1] and
+            self.macd[-1] > self.macd_signal[-1] and
+            price > b_boll
+        ):
+            if not self.position:
+                self.buy()
+        elif self.position.is_long:
+            self.position.close()
+
+class Short_SMA_MAC_DBB(Strategy):
+    sma_period = 200
+
+    def init(self):
+        close = self.data.Close
+
+        self.sma = self.I(
+            lambda x: SMAIndicator(pd.Series(x), window=self.sma_period).sma_indicator().values,
+            close
+        )
+        self.macd, self.macd_signal = self.I(
+            lambda x: (
+                MACD(pd.Series(x)).macd().values,
+                MACD(pd.Series(x)).macd_signal().values
+            ),
+            close
+        )
+        self.bb_middle = self.I(
+            lambda x: BollingerBands(pd.Series(x), window=20, window_dev=2).bollinger_mavg().values,
+            close
+        )
+
+    def next(self):
+        price = self.data.Close[-1]
+        if (
+            price < self.sma[-1] and
+            self.macd[-1] < self.macd_signal[-1] and
+            price < self.bb_middle[-1]
+        ):
+            if not self.position:
+                self.sell()
+        elif self.position.is_short:
+            self.position.close()
+
+# Backtest del largo
+bt_long = Backtest(data, Long_SMA_MACD_BB, cash = 100)
+stats_long = bt_long.run()
+print(stats_long)
+#bt_long.plot()
+
+"""
+# Backtest del corto
+bt_short = Backtest(data, Short_SMA_MAC_DBB, cash = 100)
+stats_short = bt_short.run()
+print(stats_short)
+#bt_short.plot()
+"""
+"""# Backtest de la estrategia MACD + SMA + BB
+bt = Backtest(data, MACD_MA_BB, cash = 100)
+#bt.run()
+stats = bt.run()
+print(stats)
+#bt.plot()"""
+
+"""
 class BB_VWAP_RSI_TA(Strategy):
     # Parámetros de la estrategia
     bb_period = 20
@@ -168,8 +267,7 @@ class BB_VWAP_RSI_TA(Strategy):
         # Lógica de trading aquí
         pass
 
-
-class BB_VWAP_RSI:
+class BB_VWAP_RSI(Strategy):
     def __init__(self, exchange, symbol, timeframe, bb_period=20, bb_std_dev=2, vwap_period=14, rsi_period=14):
         self.exchange = exchange
         self.symbol = symbol
@@ -186,7 +284,4 @@ class BB_VWAP_RSI:
         #pprint.pprint(df)
     pass
 
-# ===== EJECUCIÓN PRINCIPAL =====
-if __name__ == "__main__":
-    strategy = BB_VWAP_RSI(bingx, entradas["symbol"], entradas["temporalidad"])
-    strategy.run()
+"""
