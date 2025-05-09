@@ -181,9 +181,9 @@ class Long_SMA_MACD_BB(Strategy):
                 # Tamaño basado en riesgo fijo por operación
                 capital = self.equity
                 riesgo_usd = capital * self.riesgo_pct
-                tamaño = riesgo_usd / risk
+                tamaño = abs(riesgo_usd / risk)
 
-                self.buy(size = tamaño, sl = stop_price, tp = take_profit)
+                self.buy(size = 40, sl = stop_price, tp = take_profit)
         """
         elif self.position.is_long:
             # Por si se quiere cerrar antes (esto es opcional porque SL/TP ya gestionan salida)
@@ -230,7 +230,7 @@ class Short_SMA_MAC_DBB(Strategy):
             self.position.close()
 
 # Backtest del largo
-bt_long = Backtest(data, Long_SMA_MACD_BB, cash = 100)
+bt_long = Backtest(data, Long_SMA_MACD_BB)
 stats_long = bt_long.run()
 print(stats_long)
 #bt_long.plot()
