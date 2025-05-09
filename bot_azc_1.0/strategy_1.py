@@ -110,36 +110,6 @@ data = pd.read_csv("data_velas/BingX/SUI-USDT/BingX_SUI-USDT_1m_2025-05-09_velas
 
 """ CLASES DE ESTRATEGIA PARA BACKTESTING """
 
-class MACD_MA_BB(Strategy):
-    # Indicadores
-    macd = None
-    sma = None
-    bb = None
-    # Parámetros de los indicadores
-    macd_fast = 10
-    macd_slow = 20
-    macd_signal = 10
-    sma_period = 200
-    bb_period = 20
-    bb_std_dev = 2
-
-    def init(self):
-        # Inicializar indicadores
-        #self.macd = self.I(ta.trend.MACD, self.data.Close, window_slow=self.macd_slow, window_fast=self.macd_fast, window_sign=self.macd_signal)
-        self.sma = self.I(lambda x: ta.trend.SMAIndicator(pd.Series(x), window=self.sma_period).sma_indicator().values, self.data.Close)
-        #self.bb = self.I(ta.volatility.BollingerBands, self.data.Close, window=self.bb_period, window_dev=self.bb_std_dev)
-
-    def next(self):
-        # Lógica de trading aquí
-        price = self.data.Close[-1]
-
-        if price > self.sma[-1] and not self.position.is_long:
-            # Señal de compra
-            self.buy()
-        elif price < self.sma[-1] and not self.position.is_long:
-            # Señal de venta
-            self.position.close()
-
 class Long_SMA_MACD_BB(Strategy):
     # Indicadores
     sma = None
@@ -155,6 +125,10 @@ class Long_SMA_MACD_BB(Strategy):
     macd_signal = 10
     bb_period = 20
     bb_std_dev = 1
+
+    # Parámetros de gestión de riesgo
+    riesgo_pct = 0.01      # 1% del capital por operación
+    tp_mult = 2            # Take profit = riesgo * 2
 
     def init(self):
         """Indicadores de la estrategia"""
@@ -182,18 +156,44 @@ class Long_SMA_MACD_BB(Strategy):
             self.data.Close)
 
     def next(self):
+
+        if len(self.data) < 20:  # Necesario para calcular el mínimo de las 20 últimas velas
+            return
+
         price = self.data.Close[-1]
         b_boll = self.bb_hband[-1]
+        low20 = self.data.Low[-20:]
+        stop_price = min(low20)
+        risk = abs(price - stop_price)
 
+        if risk <= 0:  # Evitar errores por stops inválidos
+            return
+
+        take_profit = price + risk * self.tp_mult
+
+        # Condiciones técnicas de entrada long
         if (
-            price > self.sma[-1] and
-            self.macd[-1] > self.macd_signal[-1] and
-            price > b_boll
+            price > self.sma[-1]
+            and crossover(self.macd, self.macd_signal) #self.macd[-1] > self.macd_signal[-1]
+            and price > b_boll
         ):
             if not self.position:
-                self.buy()
+                # Tamaño basado en riesgo fijo por operación
+                capital = self.equity
+                riesgo_usd = capital * self.riesgo_pct
+                tamaño = riesgo_usd / risk
+
+                self.buy(size = tamaño, sl = stop_price, tp = take_profit)
+        """
         elif self.position.is_long:
-            self.position.close()
+            # Por si se quiere cerrar antes (esto es opcional porque SL/TP ya gestionan salida)
+            if (
+                price < self.sma[-1] or
+                self.macd[-1] < self.macd_signal[-1]
+            ):
+                self.position.close()
+        """
+
 
 class Short_SMA_MAC_DBB(Strategy):
     sma_period = 200
