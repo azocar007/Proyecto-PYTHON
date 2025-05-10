@@ -119,16 +119,22 @@ class Long_SMA_MACD_BB(Strategy):
     bb_lband = None
 
     # Parámetros de los indicadores
-    sma_period = 200
-    macd_fast = 10
-    macd_slow = 20
-    macd_signal = 10
-    bb_period = 20
-    bb_std_dev = 1
+    sma_period = 200        # 0 - 200 Periodo de la media movil simple
+    macd_fast = 10          # 0 - 12 Periodo rápido del MACD
+    macd_slow = 20          # 0 - 26 Periodo lento del MACD
+    macd_signal = 10        # 0 - 10 Periodo de la señal del MACD
+    bb_period = 20          # 0 - 100 Periodo de las bandas de Bollinger
+    bb_std_dev = 1          # 0 - 2 Desviación estándar para las bandas de Bollinger
 
     # Parámetros de gestión de riesgo
+    pip_moneda = 2
+    pip_precio = 0.0001
+    dist_min = 0.5         # % 0 - 1 Distancia mínima entre el precio de entrada y el stop loss
+    sep_min = 50           # % de 0 - 100 ampliación de distancia entre min_price y precio de entrada
+    ratio = 2              # Take profit = riesgo * 2 ej: beneficio/riesgo 2:1
+    capital = 1000         # Capital inicial
     riesgo_pct = 0.01      # 1% del capital por operación
-    tp_mult = 2            # Take profit = riesgo * 2
+
 
     def init(self):
         """Indicadores de la estrategia"""
@@ -163,27 +169,30 @@ class Long_SMA_MACD_BB(Strategy):
         price = self.data.Close[-1]
         b_boll = self.bb_hband[-1]
         low20 = self.data.Low[-20:]
-        stop_price = min(low20)
+        min_price = min(low20)
+        stop_price = price - (abs(min_price - price) * (1 + self.sep_min / 100))  # Ampliación del stop loss
         risk = abs(price - stop_price)
 
         if risk <= 0:  # Evitar errores por stops inválidos
             return
 
-        take_profit = price + risk * self.tp_mult
+        take_profit = price + risk * self.ratio
 
         # Condiciones técnicas de entrada long
-        if (
-            price > self.sma[-1]
+        if (price > self.sma[-1]
             and crossover(self.macd, self.macd_signal) #self.macd[-1] > self.macd_signal[-1]
             and price > b_boll
-        ):
+            and (abs(price - min_price) / price * 100) >= self.dist_min / 100):
+
             if not self.position:
                 # Tamaño basado en riesgo fijo por operación
-                capital = self.equity
-                riesgo_usd = capital * self.riesgo_pct
-                tamaño = abs(riesgo_usd / risk)
+                riesgo_usd = self.capital * self.riesgo_pct
+                cant_mon = riesgo_usd / risk
+                cant_mon = mgo.redondeo(cant_mon, self.pip_moneda)
+                stop_price = mgo.redondeo(stop_price, self.pip_precio)
+                take_profit = mgo.redondeo(take_profit, self.pip_precio)
 
-                self.buy(size = 40, sl = stop_price, tp = take_profit)
+                self.buy(size = cant_mon, sl = stop_price, tp = take_profit)
         """
         elif self.position.is_long:
             # Por si se quiere cerrar antes (esto es opcional porque SL/TP ya gestionan salida)

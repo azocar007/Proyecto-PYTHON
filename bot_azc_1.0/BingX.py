@@ -1053,7 +1053,7 @@ class BingX:
 if __name__ == "__main__":
 
     entradas = {
-                "symbol": "doge",
+                "symbol": "sui",
                 "positionside": "LONG",
                 "modo_gestion": "REENTRADAS",
                 "monto_sl": 1.0,
@@ -1076,9 +1076,9 @@ if __name__ == "__main__":
     """ Solicitar información de la cuenta y monedas """
     #print("Balance de la cuenta:", bingx.get_balance()["availableMargin"]) # Margen disponible para operar
     #pprint.pprint({"Activo": symbol, "Información" : bingx.inf_moneda(symbol)})
-    #print("Pip del precio:", bingx.pip_precio(symbol))
+    print("Pip del precio:", bingx.pip_precio())
     #print("Cantidad de decimales del precio:", bingx.cant_deci_precio(symbol))
-    #print("Monto mínimo moneda (pip de moneda):", bingx.pip_moneda(symbol))
+    print("Monto mínimo moneda (pip de moneda):", bingx.pip_moneda())
     #print("Monto mínimo USDT:", bingx.min_usdt(symbol))
     #bingx.max_apalancamiento(symbol)
 
