@@ -117,6 +117,7 @@ class Long_SMA_MACD_BB(Strategy):
     bb_hband = None
     bb_middle = None
     bb_lband = None
+    macd_crossed = None
 
     # Parámetros de los indicadores
     sma_period = 200        # 0 - 200 Periodo de la media movil simple
@@ -130,9 +131,10 @@ class Long_SMA_MACD_BB(Strategy):
     pip_moneda = 2
     pip_precio = 0.0001
     dist_min = 0.5         # % 0 - 1 Distancia mínima entre el precio de entrada y el stop loss
-    sep_min = 50           # % de 0 - 100 ampliación de distancia entre min_price y precio de entrada
+    sep_min = 25           # % de 0 - 100 ampliación de dist entre min_price y precio de entrada
     ratio = 2              # Take profit = riesgo * 2 ej: beneficio/riesgo 2:1
-    capital = 1000         # Capital inicial
+    macd_valid_window = 10 # duración del cruce MACD como señal válida
+    #capital = 10000         # Capital inicial
     riesgo_pct = 0.01      # 1% del capital por operación
 
 
@@ -161,6 +163,9 @@ class Long_SMA_MACD_BB(Strategy):
             lambda x: ta.volatility.BollingerBands(pd.Series(x), window = self.bb_period, window_dev = self.bb_std_dev).bollinger_lband().values,
             self.data.Close)
 
+        # contador de señal MACD activa
+        self.macd_crossed = 0
+
     def next(self):
 
         if len(self.data) < 20:  # Necesario para calcular el mínimo de las 20 últimas velas
@@ -178,15 +183,22 @@ class Long_SMA_MACD_BB(Strategy):
 
         take_profit = price + risk * self.ratio
 
-        # Condiciones técnicas de entrada long
-        if (price > self.sma[-1]
-            and crossover(self.macd, self.macd_signal) #self.macd[-1] > self.macd_signal[-1]
-            and price > b_boll
-            and (abs(price - min_price) / price * 100) >= self.dist_min / 100):
+        # 1ras Condiciones técnicas de entrada long
+        if price > self.sma[-1] and self.macd[-1] > self.macd_signal[-1]: #crossover(self.macd, self.macd_signal):
+            self.macd_crossed = self.macd_valid_window
+
+        # Disminuir contador si está activo
+        if self.macd_crossed > 0:
+            self.macd_crossed -= 1
+        else:
+            return  # si no hay señal activa, no hacer nada
+
+        # 2das Condiciones técnicas de entrada long
+        if self.macd_crossed > 0 and price >= b_boll and (abs(price - min_price) / price * 100) >= self.dist_min / 100:
 
             if not self.position:
                 # Tamaño basado en riesgo fijo por operación
-                riesgo_usd = self.capital * self.riesgo_pct
+                riesgo_usd = self.equity * self.riesgo_pct # self.capital
                 cant_mon = riesgo_usd / risk
                 cant_mon = mgo.redondeo(cant_mon, self.pip_moneda)
                 stop_price = mgo.redondeo(stop_price, self.pip_precio)
@@ -239,10 +251,10 @@ class Short_SMA_MAC_DBB(Strategy):
             self.position.close()
 
 # Backtest del largo
-bt_long = Backtest(data, Long_SMA_MACD_BB)
+bt_long = Backtest(data, Long_SMA_MACD_BB, cash = 1000)
 stats_long = bt_long.run()
 print(stats_long)
-#bt_long.plot()
+#bt_long.plot()(filename='grafico_long.html')
 
 """
 # Backtest del corto
