@@ -130,11 +130,10 @@ class Long_SMA_MACD_BB(Strategy):
     # Parámetros de gestión de riesgo
     pip_moneda = 2
     pip_precio = 0.0001
-    dist_min = 0.5         # % 0 - 1 Distancia mínima entre el precio de entrada y el stop loss
-    sep_min = 25           # % de 0 - 100 ampliación de dist entre min_price y precio de entrada
+    dist_min = 0         # % 0 - 1 Distancia mínima entre el precio de entrada y el stop loss
+    sep_min = 0           # % de 0 - 100 ampliación de dist entre min_price y precio de entrada
     ratio = 2              # Take profit = riesgo * 2 ej: beneficio/riesgo 2:1
     macd_valid_window = 10 # duración del cruce MACD como señal válida
-    #capital = 10000         # Capital inicial
     riesgo_pct = 0.01      # 1% del capital por operación
 
 
@@ -179,7 +178,7 @@ class Long_SMA_MACD_BB(Strategy):
         close_ant = self.data.Close[-2]
 
         # Activar señal MACD si corresponde
-        if self.data.Close[-1] > self.sma[-1] and self.macd[-1] > self.macd_signal[-1]:
+        if self.data.Close[-1] > self.sma[-1] and crossover(self.macd, self.macd_signal): #self.macd[-1] > self.macd_signal[-1]:
             self.macd_crossed = self.macd_valid_window
 
         if self.macd_crossed > 0:
@@ -234,7 +233,7 @@ class Long_SMA_MACD_BB(Strategy):
             take_profit = mgo.redondeo(take_profit, self.pip_precio)
 
             if cant_mon > 0: # aquí se debe comprobar si el tamaño es mayor a minimo permitido por el exchange
-                self.buy(size = cant_mon, sl = stop_price, tp = take_profit) #, limit = entry_price
+                self.buy(size = cant_mon, stop = entry_price, sl = stop_price, tp = take_profit) #, limit = entry_price
 
 
 class Short_SMA_MAC_DBB(Strategy):
