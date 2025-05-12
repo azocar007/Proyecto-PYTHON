@@ -168,6 +168,86 @@ class Long_SMA_MACD_BB(Strategy):
 
     def next(self):
 
+        if len(self.data) < 20:
+            return
+
+        if self.position:
+            return  # No abrir nueva si ya hay una activa
+
+        min_price = min(self.data.Low[-20:])
+        high = self.data.High[-1]
+        close_ant = self.data.Close[-2]
+
+        # Activar señal MACD si corresponde
+        if self.data.Close[-1] > self.sma[-1] and self.macd[-1] > self.macd_signal[-1]:
+            self.macd_crossed = self.macd_valid_window
+
+        if self.macd_crossed > 0:
+            self.macd_crossed -= 1
+        else:
+            return
+
+        # Confirmar toque de la banda
+        if high >= self.bb_hband[-1]:
+            # Buscar entry_price con incremento desde el cierre anterior
+            precios_hist = pd.Series(self.data.Close[-19:].tolist())  # 19 previas
+            precio = close_ant
+            tope = high
+            entry_price = None
+
+            # Bucle de fuerza bruta para conseguir el precio igual o inmediatamente superior al de la banda de bollinger
+            while precio <= tope:
+
+                # Calcular banda de Bollinger superior para el precio iterado
+                serie = pd.concat([precios_hist, pd.Series([precio])], ignore_index=True)
+                bb = ta.volatility.BollingerBands(
+                    serie,
+                    window = self.bb_period,
+                    window_dev = self.bb_std_dev
+                    )
+                bb_val = bb.bollinger_hband().iloc[-1]
+
+                # Comprobación del precio iterado para cerra el bucle
+                if bb_val >= precio:
+                    entry_price = mgo.redondeo(precio, self.pip_precio)
+                    break
+
+                # Si no se cumple, incrementar el precio iterado
+                precio += self.pip_precio
+
+            if entry_price is None:
+                return  # No se encontró cruce válido
+
+            # Validar estructura (distancia al mínimo)
+            if (abs(entry_price - min_price) / entry_price * 100) < (self.dist_min / 100):
+                return
+
+            # Calcular SL, TP, tamaño
+            stop_price = entry_price - (abs(min_price - entry_price) * (1 + self.sep_min / 100))
+            risk = abs(entry_price - stop_price)
+            take_profit = entry_price + risk * self.ratio
+            riesgo_usd = self.equity * self.riesgo_pct
+            cant_mon = riesgo_usd / risk
+
+            cant_mon = mgo.redondeo(cant_mon, self.pip_moneda)
+            stop_price = mgo.redondeo(stop_price, self.pip_precio)
+            take_profit = mgo.redondeo(take_profit, self.pip_precio)
+
+            if cant_mon > 0: # aquí se debe comprobar si el tamaño es mayor a minimo permitido por el exchange
+                self.buy(size = cant_mon, sl = stop_price, tp = take_profit) #, limit = entry_price
+
+
+class Short_SMA_MAC_DBB(Strategy):
+    pass
+
+
+# Backtest del largo
+bt_long = Backtest(data, Long_SMA_MACD_BB, cash = 1000)
+stats_long = bt_long.run()
+print(stats_long)
+#bt_long.plot()(filename='grafico_long.html')
+
+"""
         if len(self.data) < 20:  # Necesario para calcular el mínimo de las 20 últimas velas
             return
 
@@ -205,104 +285,4 @@ class Long_SMA_MACD_BB(Strategy):
                 take_profit = mgo.redondeo(take_profit, self.pip_precio)
 
                 self.buy(size = cant_mon, sl = stop_price, tp = take_profit)
-        """
-        elif self.position.is_long:
-            # Por si se quiere cerrar antes (esto es opcional porque SL/TP ya gestionan salida)
-            if (
-                price < self.sma[-1] or
-                self.macd[-1] < self.macd_signal[-1]
-            ):
-                self.position.close()
-        """
-
-
-class Short_SMA_MAC_DBB(Strategy):
-    sma_period = 200
-
-    def init(self):
-        close = self.data.Close
-
-        self.sma = self.I(
-            lambda x: SMAIndicator(pd.Series(x), window=self.sma_period).sma_indicator().values,
-            close
-        )
-        self.macd, self.macd_signal = self.I(
-            lambda x: (
-                MACD(pd.Series(x)).macd().values,
-                MACD(pd.Series(x)).macd_signal().values
-            ),
-            close
-        )
-        self.bb_middle = self.I(
-            lambda x: BollingerBands(pd.Series(x), window=20, window_dev=2).bollinger_mavg().values,
-            close
-        )
-
-    def next(self):
-        price = self.data.Close[-1]
-        if (
-            price < self.sma[-1] and
-            self.macd[-1] < self.macd_signal[-1] and
-            price < self.bb_middle[-1]
-        ):
-            if not self.position:
-                self.sell()
-        elif self.position.is_short:
-            self.position.close()
-
-# Backtest del largo
-bt_long = Backtest(data, Long_SMA_MACD_BB, cash = 1000)
-stats_long = bt_long.run()
-print(stats_long)
-#bt_long.plot()(filename='grafico_long.html')
-
-"""
-# Backtest del corto
-bt_short = Backtest(data, Short_SMA_MAC_DBB, cash = 100)
-stats_short = bt_short.run()
-print(stats_short)
-#bt_short.plot()
-"""
-"""# Backtest de la estrategia MACD + SMA + BB
-bt = Backtest(data, MACD_MA_BB, cash = 100)
-#bt.run()
-stats = bt.run()
-print(stats)
-#bt.plot()"""
-
-"""
-class BB_VWAP_RSI_TA(Strategy):
-    # Parámetros de la estrategia
-    bb_period = 20
-    bb_std_dev = 2
-    vwap_period = 14
-    rsi_period = 14
-
-    def init(self):
-        # Inicializar indicadores
-        self.bb = ta.volatility.BollingerBands(self.data.Close, window=self.bb_period, window_dev=self.bb_std_dev)
-        self.vwap = ta.volume.VolumeWeightedAveragePrice(self.data.High, self.data.Low, self.data.Close, self.data.Volume)
-        self.rsi = ta.momentum.RSIIndicator(self.data.Close, window=self.rsi_period)
-
-    def next(self):
-        # Lógica de trading aquí
-        pass
-
-class BB_VWAP_RSI(Strategy):
-    def __init__(self, exchange, symbol, timeframe, bb_period=20, bb_std_dev=2, vwap_period=14, rsi_period=14):
-        self.exchange = exchange
-        self.symbol = symbol
-        self.timeframe = timeframe
-        self.bb_period = bb_period
-        self.bb_std_dev = bb_std_dev
-        self.vwap_period = vwap_period
-        self.rsi_period = rsi_period
-
-    def run(self):
-        # Lógica de la estrategia aquí
-        # Obtener datos históricos
-        df = bingx.get_last_candles(self.timeframe, 500)
-        #pprint.pprint(df)
-    pass
-
 """
