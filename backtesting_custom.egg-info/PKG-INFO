@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: backtesting_custom
+Version: 0.1
+Summary: Versión personalizada de Backtesting.py
+Author: Tu Nombre
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: matplotlib
+Dynamic: author
+Dynamic: requires-dist
+Dynamic: summary

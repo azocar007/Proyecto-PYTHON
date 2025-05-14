@@ -7,9 +7,8 @@ import datetime as dt
 import numpy as np
 import pandas as pd
 import ta
-import backtesting
-from backtesting import Backtest, Strategy
-from backtesting.lib import crossover
+from backtesting_custom import Backtest, Strategy
+from backtesting_custom.lib import crossover
 import ta.trend
 
 import BingX
