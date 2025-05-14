@@ -7,6 +7,7 @@ import datetime as dt
 import numpy as np
 import pandas as pd
 import ta
+import backtesting
 from backtesting import Backtest, Strategy
 from backtesting.lib import crossover
 import ta.trend
@@ -178,7 +179,7 @@ class Long_SMA_MACD_BB(Strategy):
         close_ant = self.data.Close[-2]
 
         # Activar señal MACD si corresponde
-        if self.data.Close[-1] > self.sma[-1] and crossover(self.macd, self.macd_signal): #self.macd[-1] > self.macd_signal[-1]:
+        if self.data.Close[-1] > self.sma[-1] and self.macd[-1] > self.macd_signal[-1]: #crossover(self.macd, self.macd_signal):
             self.macd_crossed = self.macd_valid_window
 
         if self.macd_crossed > 0:
@@ -244,7 +245,10 @@ class Short_SMA_MAC_DBB(Strategy):
 bt_long = Backtest(data, Long_SMA_MACD_BB, cash = 1000)
 stats_long = bt_long.run()
 print(stats_long)
+data_long_trades = stats_long['_trades']
+print(data_long_trades)
 #bt_long.plot()(filename='grafico_long.html')
+
 
 """
         if len(self.data) < 20:  # Necesario para calcular el mínimo de las 20 últimas velas
