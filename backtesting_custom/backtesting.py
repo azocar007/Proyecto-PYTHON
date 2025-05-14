@@ -219,7 +219,8 @@ class Strategy(metaclass=ABCMeta):
             stop: Optional[float] = None,
             sl: Optional[float] = None,
             tp: Optional[float] = None,
-            tag: object = None) -> 'Order':
+            tag: object = None,
+            market: Optional[float] = None) -> 'Order':
         """
         Place a new long order and return it. For explanation of parameters, see `Order`
         and its properties.
@@ -234,7 +235,7 @@ class Strategy(metaclass=ABCMeta):
         """
         assert 0 < size < 1 or round(size) == size >= 1, \
             "size must be a positive fraction of equity, or a positive whole number of units"
-        return self._broker.new_order(size, limit, stop, sl, tp, tag)
+        return self._broker.new_order(size, limit, stop, sl, tp, tag, market)
 
     def sell(self, *,
              size: float = _FULL_EQUITY,
@@ -242,7 +243,8 @@ class Strategy(metaclass=ABCMeta):
              stop: Optional[float] = None,
              sl: Optional[float] = None,
              tp: Optional[float] = None,
-             tag: object = None) -> 'Order':
+             tag: object = None,
+             market: Optional[float] = None) -> 'Order':
         """
         Place a new short order and return it. For explanation of parameters, see `Order`
         and its properties.
@@ -265,7 +267,7 @@ class Strategy(metaclass=ABCMeta):
         """
         assert 0 < size < 1 or round(size) == size >= 1, \
             "size must be a positive fraction of equity, or a positive whole number of units"
-        return self._broker.new_order(-size, limit, stop, sl, tp, tag)
+        return self._broker.new_order(-size, limit, stop, sl, tp, tag, market)
 
     @property
     def equity(self) -> float:
@@ -778,6 +780,7 @@ class _Broker:
                   sl: Optional[float] = None,
                   tp: Optional[float] = None,
                   tag: object = None,
+                  market: Optional[float] = None,
                   *,
                   trade: Optional[Trade] = None) -> Order:
         """
@@ -788,10 +791,19 @@ class _Broker:
         limit = limit and float(limit)
         sl = sl and float(sl)
         tp = tp and float(tp)
+        market = market and float(market)
+
+        # Validación de market dentro de la vela actual
+        if market is not None: # [self.i] o [-1] o [self._i]
+            low = self._data.Low[self._i]
+            high = self._data.High[self._i]
+
+            if not (low <= market <= high):
+                raise ValueError(f"Precio de entrada 'market={market}' fuera del rango de la vela actual [{low}, {high}]")
 
         is_long = size > 0
         assert size != 0, size
-        adjusted_price = self._adjusted_price(size)
+        adjusted_price = self._adjusted_price(size, price=market)
 
         if is_long:
             if not (sl or -np.inf) < (limit or stop or adjusted_price) < (tp or np.inf):

@@ -175,7 +175,7 @@ class Long_SMA_MACD_BB(Strategy):
 
         min_price = min(self.data.Low[-20:])
         high = self.data.High[-1]
-        close_ant = self.data.Close[-2]
+        low = self.data.Low[-1]
 
         # Activar señal MACD si corresponde
         if self.data.Close[-1] > self.sma[-1] and self.macd[-1] > self.macd_signal[-1]: #crossover(self.macd, self.macd_signal):
@@ -190,7 +190,7 @@ class Long_SMA_MACD_BB(Strategy):
         if high >= self.bb_hband[-1]:
             # Buscar entry_price con incremento desde el cierre anterior
             precios_hist = pd.Series(self.data.Close[-19:].tolist())  # 19 previas
-            precio = close_ant
+            precio = low
             tope = high
             entry_price = None
 
@@ -232,8 +232,8 @@ class Long_SMA_MACD_BB(Strategy):
             stop_price = mgo.redondeo(stop_price, self.pip_precio)
             take_profit = mgo.redondeo(take_profit, self.pip_precio)
 
-            if cant_mon > 0: # aquí se debe comprobar si el tamaño es mayor a minimo permitido por el exchange
-                self.buy(size = cant_mon, stop = entry_price, sl = stop_price, tp = take_profit) #, limit = entry_price
+            if cant_mon > 0: # aquí se debe comprobar si el tamaño es mayor al minimo permitido por el exchange
+                self.buy(size = cant_mon, sl = stop_price, tp = take_profit, market = entry_price)
 
 
 class Short_SMA_MAC_DBB(Strategy):
