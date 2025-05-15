@@ -424,7 +424,8 @@ class Order:
                  sl_price: Optional[float] = None,
                  tp_price: Optional[float] = None,
                  parent_trade: Optional['Trade'] = None,
-                 tag: object = None):
+                 tag: object = None,
+                 market: Optional[float] = None):
         self.__broker = broker
         assert size != 0
         self.__size = size
@@ -434,6 +435,7 @@ class Order:
         self.__tp_price = tp_price
         self.__parent_trade = parent_trade
         self.__tag = tag
+        self.__market = market
 
     def _replace(self, **kwargs):
         for k, v in kwargs.items():
@@ -450,6 +452,7 @@ class Order:
                                                  ('tp', self.__tp_price),
                                                  ('contingent', self.is_contingent),
                                                  ('tag', self.__tag),
+                                                 ('market', self.__market),
                                              ) if value is not None))  # noqa: E126
 
     def cancel(self):
@@ -527,6 +530,13 @@ class Order:
         of this order and the associated `Trade` (see `Trade.tag`).
         """
         return self.__tag
+
+    @property
+    def market(self) -> Optional[float]:
+        """
+        If market entry is used on the same bar as the entry signal.
+        """
+        return self.__market
 
     __pdoc__['Order.parent_trade'] = False
 
@@ -793,13 +803,13 @@ class _Broker:
         tp = tp and float(tp)
         market = market and float(market)
 
-        # Validación de market dentro de la vela actual
-        if market is not None: # [self.i] o [-1] o [self._i]
+        # Market validation within the current candle
+        if market is not None:
             low = self._data.Low[self._i]
             high = self._data.High[self._i]
 
             if not (low <= market <= high):
-                raise ValueError(f"Precio de entrada 'market={market}' fuera del rango de la vela actual [{low}, {high}]")
+                raise ValueError(f"Entry price, 'market={market}' outside the range of the current candle: [{low}, {high}]")
 
         is_long = size > 0
         assert size != 0, size
@@ -816,7 +826,7 @@ class _Broker:
                     "Short orders require: "
                     f"TP ({tp}) < LIMIT ({limit or stop or adjusted_price}) < SL ({sl})")
 
-        order = Order(self, size, limit, stop, sl, tp, trade, tag)
+        order = Order(self, size, limit, stop, sl, tp, trade, tag, market)
 
         if not trade:
             # If exclusive orders (each new order auto-closes previous orders/position),
@@ -895,7 +905,7 @@ class _Broker:
                 # https://www.sec.gov/fast-answers/answersstopordhtm.html
                 order._replace(stop_price=None)
 
-            # Determine purchase price.
+            # Determine purchase price
             # Check if limit order can be filled.
             if order.limit:
                 is_limit_hit = low <= order.limit if order.is_long else high >= order.limit
@@ -915,12 +925,18 @@ class _Broker:
             else:
                 # Market-if-touched / market order
                 # Contingent orders always on next open
-                prev_close = data.Close[-2]
-                price = prev_close if self._trade_on_close and not order.is_contingent else open
+
+                if order.market is not None:
+                    price = order.market
+                else:
+                    prev_close = data.Close[-2]
+                    price = prev_close if self._trade_on_close and not order.is_contingent else open
+
                 if stop_price:
                     price = max(price, stop_price) if order.is_long else min(price, stop_price)
 
-            # Determine entry/exit bar index
+            """ Determine entry/exit bar index """
+            # is_market_order = not order.limit and not stop_price and order.market is None
             is_market_order = not order.limit and not stop_price
             time_index = (
                 (self._i - 1)
