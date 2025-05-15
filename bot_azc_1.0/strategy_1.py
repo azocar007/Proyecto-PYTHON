@@ -7,12 +7,12 @@ import datetime as dt
 import numpy as np
 import pandas as pd
 import ta
-from backtesting_custom import Backtest, Strategy
-from backtesting_custom.lib import crossover
 import ta.trend
-
 import BingX
 import Modos_de_gestion_operativa as mgo
+from backtesting_custom import Backtest, Strategy
+from backtesting_custom.lib import crossover
+
 
 entradas = {
                 "symbol": "doge",
@@ -105,7 +105,8 @@ cantidad = 1440
 
 #get_velas_df(exchange, symbol, temporalidad, cantidad)
 
-data = pd.read_csv("data_velas/BingX/SUI-USDT/BingX_SUI-USDT_1m_2025-05-09_velas.csv", parse_dates=['Time'], index_col='Time')
+data = pd.read_csv("data_velas/BingX/DOGE-USDT/BingX_DOGE-USDT_1m_2025-05-09_velas.csv",
+                    parse_dates=['Time'], index_col='Time')
 #print("Los datos son:\n", data)
 
 """ CLASES DE ESTRATEGIA PARA BACKTESTING """
@@ -128,13 +129,13 @@ class Long_SMA_MACD_BB(Strategy):
     bb_std_dev = 1          # 0 - 2 Desviación estándar para las bandas de Bollinger
 
     # Parámetros de gestión de riesgo
-    pip_moneda = 2
-    pip_precio = 0.0001
+    pip_moneda = 1
+    pip_precio = 0.00001
     dist_min = 0         # % 0 - 1 Distancia mínima entre el precio de entrada y el stop loss
     sep_min = 0           # % de 0 - 100 ampliación de dist entre min_price y precio de entrada
     ratio = 2              # Take profit = riesgo * 2 ej: beneficio/riesgo 2:1
     macd_valid_window = 10 # duración del cruce MACD como señal válida
-    riesgo_pct = 0.01      # 1% del capital por operación
+    riesgo_pct = 0.001      # % del capital por operación, 0.001 EQUIVALE A 1 USD PARA UN CAPITAL DE 1000 USD
 
 
     def init(self):
@@ -177,8 +178,13 @@ class Long_SMA_MACD_BB(Strategy):
         high = self.data.High[-1]
         low = self.data.Low[-1]
 
-        # Activar señal MACD si corresponde
-        if self.data.Close[-1] > self.sma[-1] and self.macd[-1] > self.macd_signal[-1]: #crossover(self.macd, self.macd_signal):
+        """ Activar señal MACD si corresponde """
+        # Si el MACD cruza la señal y el precio está por encima de la media móvil:
+        if self.data.Close[-1] > self.sma[-1] and crossover(self.macd, self.macd_signal):
+
+        # Si el MACD cruza y se mantiene por encima de la señal y el precio está por debajo de la media móvil:
+        #if self.data.Close[-1] > self.sma[-1] and self.macd[-1] > self.macd_signal[-1]:
+
             self.macd_crossed = self.macd_valid_window
 
         if self.macd_crossed > 0:
@@ -186,7 +192,7 @@ class Long_SMA_MACD_BB(Strategy):
         else:
             return
 
-        # Confirmar toque de la banda
+        """ Confirmar toque de la banda """
         if high >= self.bb_hband[-1]:
             # Buscar entry_price con incremento desde el cierre anterior
             precios_hist = pd.Series(self.data.Close[-19:].tolist())  # 19 previas
@@ -194,7 +200,7 @@ class Long_SMA_MACD_BB(Strategy):
             tope = high
             entry_price = None
 
-            # Bucle de fuerza bruta para conseguir el precio igual o inmediatamente superior al de la banda de bollinger
+            """ Bucle de fuerza bruta para conseguir el precio igual o inmediatamente superior al de la banda de bollinger """
             while precio <= tope:
 
                 # Calcular banda de Bollinger superior para el precio iterado
@@ -217,7 +223,7 @@ class Long_SMA_MACD_BB(Strategy):
             if entry_price is None:
                 return  # No se encontró cruce válido
 
-            # Validar estructura (distancia al mínimo)
+            """ Validar estructura (distancia al mínimo) """
             if (abs(entry_price - min_price) / entry_price * 100) < (self.dist_min / 100):
                 return
 
