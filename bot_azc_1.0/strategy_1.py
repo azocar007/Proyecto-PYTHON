@@ -137,7 +137,6 @@ class Long_SMA_MACD_BB(Strategy):
     macd_valid_window = 10 # duración del cruce MACD como señal válida
     riesgo_pct = 0.001      # % del capital por operación, 0.001 EQUIVALE A 1 USD PARA UN CAPITAL DE 1000 USD
 
-
     def init(self):
         """Indicadores de la estrategia"""
         # Media movil
@@ -243,9 +242,135 @@ class Long_SMA_MACD_BB(Strategy):
 
 
 class Short_SMA_MAC_DBB(Strategy):
-    pass
+    # Indicadores
+    sma = None
+    macd = None
+    bb_hband = None
+    bb_middle = None
+    bb_lband = None
+    macd_crossed = None
 
+    # Parámetros de los indicadores
+    sma_period = 200        # 0 - 200 Periodo de la media movil simple
+    macd_fast = 10          # 0 - 12 Periodo rápido del MACD
+    macd_slow = 20          # 0 - 26 Periodo lento del MACD
+    macd_signal = 10        # 0 - 10 Periodo de la señal del MACD
+    bb_period = 20          # 0 - 100 Periodo de las bandas de Bollinger
+    bb_std_dev = 1          # 0 - 2 Desviación estándar para las bandas de Bollinger
 
+    # Parámetros de gestión de riesgo
+    pip_moneda = 1
+    pip_precio = 0.00001
+    dist_min = 0         # % 0 - 1 Distancia mínima entre el precio de entrada y el stop loss
+    sep_min = 0           # % de 0 - 100 ampliación de dist entre min_price y precio de entrada
+    ratio = 2              # Take profit = riesgo * 2 ej: beneficio/riesgo 2:1
+    macd_valid_window = 10 # duración del cruce MACD como señal válida
+    riesgo_pct = 0.001      # % del capital por operación, 0.001 EQUIVALE A 1 USD PARA UN CAPITAL DE 1000 USD
+
+    def init(self):
+        """Indicadores de la estrategia"""
+        # Media movil
+        self.sma = self.I(lambda x: ta.trend.SMAIndicator(pd.Series(x), window = self.sma_period).sma_indicator().values, self.data.Close)
+
+        # MACD
+        self.macd, self.macd_signal = self.I(
+            lambda x: (
+                ta.trend.MACD(pd.Series(x), window_slow = self.macd_slow, window_fast = self.macd_fast, window_sign = self.macd_signal).macd().values,
+                ta.trend.MACD(pd.Series(x), window_slow = self.macd_slow, window_fast = self.macd_fast, window_sign = self.macd_signal).macd_signal().values
+            ), self.data.Close)
+
+        # Bandas de Bollinger
+        self.bb_hband = self.I(
+            lambda x: ta.volatility.BollingerBands(pd.Series(x), window = self.bb_period, window_dev = self.bb_std_dev).bollinger_hband().values,
+            self.data.Close)
+
+        self.bb_middle = self.I(
+            lambda x: ta.volatility.BollingerBands(pd.Series(x), window = self.bb_period, window_dev = self.bb_std_dev).bollinger_mavg().values,
+            self.data.Close)
+
+        self.bb_lband = self.I(
+            lambda x: ta.volatility.BollingerBands(pd.Series(x), window = self.bb_period, window_dev = self.bb_std_dev).bollinger_lband().values,
+            self.data.Close)
+
+        # contador de señal MACD activa
+        self.macd_crossed = 0
+
+    def next(self):
+
+        if len(self.data) < 20:
+            return
+
+        if self.position:
+            return  # No abrir nueva si ya hay una activa
+
+        max_price = max(self.data.High[-20:])
+        high = self.data.High[-1]
+        low = self.data.Low[-1]
+
+        """ Activar señal MACD si corresponde """
+        # Si el MACD cruza la señal y el precio está por encima de la media móvil:
+        if self.data.Close[-1] < self.sma[-1] and crossover(self.macd_signal, self.macd):
+
+        # Si el MACD cruza y se mantiene por debajo de la señal y el precio está por encima de la media móvil:
+        #if self.data.Close[-1] < self.sma[-1] and self.macd[-1] < self.macd_signal[-1]:
+
+            self.macd_crossed = self.macd_valid_window
+
+        if self.macd_crossed > 0:
+            self.macd_crossed -= 1
+        else:
+            return
+
+        """ Confirmar toque de la banda """
+        if low >= self.bb_lband[-1]:
+            # Buscar entry_price con incremento desde el cierre anterior
+            precios_hist = pd.Series(self.data.Close[-19:].tolist())  # 19 previas
+            precio = high
+            tope = low
+            entry_price = None
+
+            """ Bucle de fuerza bruta para conseguir el precio igual o inmediatamente superior al de la banda de bollinger """
+            while precio >= tope:
+
+                # Calcular banda de Bollinger superior para el precio iterado
+                serie = pd.concat([precios_hist, pd.Series([precio])], ignore_index=True)
+                bb = ta.volatility.BollingerBands(
+                    serie,
+                    window = self.bb_period,
+                    window_dev = self.bb_std_dev
+                    )
+                bb_val = bb.bollinger_lband().iloc[-1]
+
+                # Comprobación del precio iterado para cerra el bucle
+                if bb_val <= precio:
+                    entry_price = mgo.redondeo(precio, self.pip_precio)
+                    break
+
+                # Si no se cumple, incrementar el precio iterado
+                precio += self.pip_precio
+
+            if entry_price is None:
+                return  # No se encontró cruce válido
+
+            """ Validar estructura (distancia al mínimo) """
+            if (abs(entry_price - max_price) / entry_price * 100) < (self.dist_min / 100):
+                return
+
+            # Calcular SL, TP, tamaño
+            stop_price = entry_price + (abs(max_price - entry_price) * (1 + self.sep_min / 100))
+            risk = abs(entry_price - stop_price)
+            take_profit = abs(entry_price - risk * self.ratio)
+            riesgo_usd = self.equity * self.riesgo_pct
+            cant_mon = riesgo_usd / risk
+
+            cant_mon = mgo.redondeo(cant_mon, self.pip_moneda)
+            stop_price = mgo.redondeo(stop_price, self.pip_precio)
+            take_profit = mgo.redondeo(take_profit, self.pip_precio)
+
+            if cant_mon > 0: # aquí se debe comprobar si el tamaño es mayor al minimo permitido por el exchange
+                self.sell(size = cant_mon, sl = stop_price, tp = take_profit, market = entry_price)
+
+#"""
 # Backtest del largo
 bt_long = Backtest(data, Long_SMA_MACD_BB, cash = 1000)
 stats_long = bt_long.run()
@@ -253,3 +378,12 @@ print(stats_long)
 data_long_trades = stats_long['_trades']
 print(data_long_trades)
 #bt_long.plot()(filename='grafico_long.html')
+#"""
+# Backtest del corto
+bt_short = Backtest(data, Short_SMA_MAC_DBB, cash = 1000)
+stats_short = bt_short.run()
+print(stats_short)
+data_short_trades = stats_short['_trades']
+print(data_short_trades)
+#bt_short.plot()(filename='grafico_short.html')
+#"""
