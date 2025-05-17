@@ -118,6 +118,9 @@ class Long_SMA_MACD_BB(Strategy):
     bb_hband = None
     bb_middle = None
     bb_lband = None
+    bb_hband_mayor = None
+    bb_middle_mayor = None
+    bb_lband_mayor = None
     macd_crossed = None
 
     # Parámetros de los indicadores
@@ -127,14 +130,17 @@ class Long_SMA_MACD_BB(Strategy):
     macd_signal = 10        # 0 - 10 Periodo de la señal del MACD
     bb_period = 20          # 0 - 100 Periodo de las bandas de Bollinger
     bb_std_dev = 1          # 0 - 2 Desviación estándar para las bandas de Bollinger
+    # Bandas de Bollinger Mayor
+    bb_period_mayor = 20   # 0 - 100 Periodo de las bandas de Bollinger mayor
+    bb_std_dev_mayor = 2    # 0 - 2 Desviación estándar para las bandas de Bollinger Mayor
 
     # Parámetros de gestión de riesgo
     pip_moneda = 1
     pip_precio = 0.00001
-    dist_min = 0         # % 0 - 1 Distancia mínima entre el precio de entrada y el stop loss
-    sep_min = 0           # % de 0 - 100 ampliación de dist entre min_price y precio de entrada
+    dist_min = 0.5         # % 0 - 1 Distancia mínima entre el precio de entrada y el stop loss
+    sep_min = 25           # % de 0 - 100 ampliación de dist entre min_price y precio de entrada
     ratio = 2              # Take profit = riesgo * 2 ej: beneficio/riesgo 2:1
-    macd_valid_window = 10 # duración del cruce MACD como señal válida
+    macd_valid_window = 20 # duración del cruce MACD como señal válida
     riesgo_pct = 0.001      # % del capital por operación, 0.001 EQUIVALE A 1 USD PARA UN CAPITAL DE 1000 USD
 
     def init(self):
@@ -162,20 +168,34 @@ class Long_SMA_MACD_BB(Strategy):
             lambda x: ta.volatility.BollingerBands(pd.Series(x), window = self.bb_period, window_dev = self.bb_std_dev).bollinger_lband().values,
             self.data.Close)
 
+        # Bandas de Bollinger Mayor
+        self.bb_hband_mayor = self.I(
+            lambda x: ta.volatility.BollingerBands(pd.Series(x), window = self.bb_period_mayor, window_dev = self.bb_std_dev_mayor).bollinger_hband().values,
+            self.data.Close)
+
+        self.bb_middle_mayor = self.I(
+            lambda x: ta.volatility.BollingerBands(pd.Series(x), window = self.bb_period_mayor, window_dev = self.bb_std_dev_mayor).bollinger_mavg().values,
+            self.data.Close)
+
+        self.bb_lband_mayor = self.I(
+            lambda x: ta.volatility.BollingerBands(pd.Series(x), window = self.bb_period_mayor, window_dev = self.bb_std_dev_mayor).bollinger_lband().values,
+            self.data.Close)
+
         # contador de señal MACD activa
         self.macd_crossed = 0
 
     def next(self):
-
+        # Valida que existan mas de 20 velas para evitar errores
         if len(self.data) < 20:
             return
 
+        # Valida que no existan posiciones abiertas
         if self.position:
             return  # No abrir nueva si ya hay una activa
 
-        min_price = min(self.data.Low[-20:])
-        high = self.data.High[-1]
-        low = self.data.Low[-1]
+        # Valida que el precio actual NO esté dentro de las bandas de Bollinger mayor
+        if self.bb_lband_mayor[-1] < self.sma[-1] < self.bb_hband_mayor[-1]:
+            return
 
         """ Activar señal MACD si corresponde """
         # Si el MACD cruza la señal y el precio está por encima de la media móvil:
@@ -192,6 +212,11 @@ class Long_SMA_MACD_BB(Strategy):
             return
 
         """ Confirmar toque de la banda """
+        # variables para el cruce de la banda superior
+        min_price = min(self.data.Low[-20:])
+        high = self.data.High[-1]
+        low = self.data.Low[-1]
+
         if high >= self.bb_hband[-1]:
             # Buscar entry_price con incremento desde el cierre anterior
             precios_hist = pd.Series(self.data.Close[-19:].tolist())  # 19 previas
@@ -248,6 +273,9 @@ class Short_SMA_MAC_DBB(Strategy):
     bb_hband = None
     bb_middle = None
     bb_lband = None
+    bb_hband_mayor = None
+    bb_middle_mayor = None
+    bb_lband_mayor = None
     macd_crossed = None
 
     # Parámetros de los indicadores
@@ -257,14 +285,17 @@ class Short_SMA_MAC_DBB(Strategy):
     macd_signal = 10        # 0 - 10 Periodo de la señal del MACD
     bb_period = 20          # 0 - 100 Periodo de las bandas de Bollinger
     bb_std_dev = 1          # 0 - 2 Desviación estándar para las bandas de Bollinger
+    # Bandas de Bollinger Mayor
+    bb_period_mayor = 20   # 0 - 100 Periodo de las bandas de Bollinger mayor
+    bb_std_dev_mayor = 2    # 0 - 2 Desviación estándar para las bandas de Bollinger Mayor
 
     # Parámetros de gestión de riesgo
     pip_moneda = 1
     pip_precio = 0.00001
-    dist_min = 0         # % 0 - 1 Distancia mínima entre el precio de entrada y el stop loss
-    sep_min = 0           # % de 0 - 100 ampliación de dist entre min_price y precio de entrada
+    dist_min = 0.5         # % 0 - 1 Distancia mínima entre el precio de entrada y el stop loss
+    sep_min = 25           # % de 0 - 100 ampliación de dist entre min_price y precio de entrada
     ratio = 2              # Take profit = riesgo * 2 ej: beneficio/riesgo 2:1
-    macd_valid_window = 10 # duración del cruce MACD como señal válida
+    macd_valid_window = 20 # duración del cruce MACD como señal válida
     riesgo_pct = 0.001      # % del capital por operación, 0.001 EQUIVALE A 1 USD PARA UN CAPITAL DE 1000 USD
 
     def init(self):
@@ -292,20 +323,34 @@ class Short_SMA_MAC_DBB(Strategy):
             lambda x: ta.volatility.BollingerBands(pd.Series(x), window = self.bb_period, window_dev = self.bb_std_dev).bollinger_lband().values,
             self.data.Close)
 
+        # Bandas de Bollinger Mayor
+        self.bb_hband_mayor = self.I(
+            lambda x: ta.volatility.BollingerBands(pd.Series(x), window = self.bb_period_mayor, window_dev = self.bb_std_dev_mayor).bollinger_hband().values,
+            self.data.Close)
+
+        self.bb_middle_mayor = self.I(
+            lambda x: ta.volatility.BollingerBands(pd.Series(x), window = self.bb_period_mayor, window_dev = self.bb_std_dev_mayor).bollinger_mavg().values,
+            self.data.Close)
+
+        self.bb_lband_mayor = self.I(
+            lambda x: ta.volatility.BollingerBands(pd.Series(x), window = self.bb_period_mayor, window_dev = self.bb_std_dev_mayor).bollinger_lband().values,
+            self.data.Close)
+
         # contador de señal MACD activa
         self.macd_crossed = 0
 
     def next(self):
-
+        # Valida que existan mas de 20 velas para evitar errores
         if len(self.data) < 20:
             return
 
+        # Valida que no existan posiciones abiertas
         if self.position:
             return  # No abrir nueva si ya hay una activa
 
-        max_price = max(self.data.High[-20:])
-        high = self.data.High[-1]
-        low = self.data.Low[-1]
+        # Valida que el precio actual NO esté dentro de las bandas de Bollinger mayor
+        if self.bb_lband_mayor[-1] < self.sma[-1] < self.bb_hband_mayor[-1]:
+            return
 
         """ Activar señal MACD si corresponde """
         # Si el MACD cruza la señal y el precio está por encima de la media móvil:
@@ -322,7 +367,12 @@ class Short_SMA_MAC_DBB(Strategy):
             return
 
         """ Confirmar toque de la banda """
-        if low >= self.bb_lband[-1]:
+        # variables para el cruce de la banda inferior
+        max_price = max(self.data.High[-20:])
+        high = self.data.High[-1]
+        low = self.data.Low[-1]
+
+        if low <= self.bb_lband[-1]:
             # Buscar entry_price con incremento desde el cierre anterior
             precios_hist = pd.Series(self.data.Close[-19:].tolist())  # 19 previas
             precio = high
@@ -342,12 +392,12 @@ class Short_SMA_MAC_DBB(Strategy):
                 bb_val = bb.bollinger_lband().iloc[-1]
 
                 # Comprobación del precio iterado para cerra el bucle
-                if bb_val <= precio:
+                if bb_val <= precio and precio < max_price:
                     entry_price = mgo.redondeo(precio, self.pip_precio)
                     break
 
                 # Si no se cumple, incrementar el precio iterado
-                precio += self.pip_precio
+                precio -= self.pip_precio
 
             if entry_price is None:
                 return  # No se encontró cruce válido
