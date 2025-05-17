@@ -39,12 +39,7 @@ entradas = {
 # Función para obtener y guardar velas en CSV desde un exchange
 def get_velas_df(exchange: str, symbol: str, temporalidad: list, cantidad: list):
 
-    diccionario = {"exchange": exchange,
-                    "symbol": symbol,
-                    "temporalidad": temporalidad,
-                    "cantidad": cantidad}
-
-    def conv_pdataframe(velas: list):
+    def conv_pdataframe(velas: list, temp: str):
         df = pd.DataFrame(velas)
         df.rename(columns={
             'open': 'Open',
@@ -60,15 +55,12 @@ def get_velas_df(exchange: str, symbol: str, temporalidad: list, cantidad: list)
         df.set_index('Time', inplace=True)
         df.sort_index(inplace=True)
 
-        #print(f"Nuevas velas descargadas: {len(df)}")
-        #print(df)
-
         base_dir = "data_velas"
-        ruta = os.path.join(base_dir, exchange, symbol, temporalidad)
+        ruta = os.path.join(base_dir, exchange, symbol, temp)
         os.makedirs(ruta, exist_ok=True)
 
         fecha = dt.datetime.now().strftime('%Y-%m-%d')
-        nombre_archivo = f"{exchange}_{symbol}_{temporalidad}_{fecha}_velas.csv"
+        nombre_archivo = f"{exchange}_{symbol}_{temp}_{fecha}_velas.csv"
         archivo_completo = os.path.join(ruta, nombre_archivo)
 
         if os.path.exists(archivo_completo):
@@ -88,18 +80,22 @@ def get_velas_df(exchange: str, symbol: str, temporalidad: list, cantidad: list)
             print(f"Archivo nuevo guardado: {archivo_completo}")
             print(f"→ Velas guardadas: {len(df)}\n")
 
-        if not velas or not isinstance(velas, list):
-            print("No se recibieron velas.")
-            return
+    # Validación de entradas
+    if len(temporalidad) != len(cantidad):
+        print("Error: las listas 'temporalidad' y 'cantidad' deben tener la misma longitud.")
+        return
 
-    # Selección de exchange.
+    # Lógica por exchange
     if exchange == "BingX":
-        bingx = BingX.BingX(entradas)
+        bingx = BingX.BingX(entradas)  # 'entradas' debe estar definida
         symbol = str(symbol).upper() + "-USDT"
         for temp, cant in zip(temporalidad, cantidad):
             velas = bingx.get_last_candles(symbol, temp, cant)
-            velas.pop(0) # Para eliminar el 1er elemento que contiene el simbolo y la temporalidad
-            conv_pdataframe(velas)
+            velas.pop(0)  # Remueve encabezado
+            if not velas or not isinstance(velas, list):
+                print(f"No se recibieron velas para {temp}")
+                continue
+            conv_pdataframe(velas, temp)
             time.sleep(1)
 
     elif exchange == "Binance":
@@ -111,13 +107,14 @@ def get_velas_df(exchange: str, symbol: str, temporalidad: list, cantidad: list)
     elif exchange == "Phemex":
         pass
 
+
 """ Datos para la Obtención de velas """
 exchange = "BingX"
 symbol = "near"
 temporalidad = ["1m", "3m", "5m"]
 cantidad = [1440, 480, 280]
 
-get_velas_df(exchange, symbol, temporalidad, cantidad)
+#get_velas_df(exchange, symbol, temporalidad, cantidad)
 
 
 """ CLASES DE ESTRATEGIA PARA BACKTESTING """
@@ -135,7 +132,7 @@ class Long_SMA_MACD_BB(Strategy):
     macd_crossed = None
 
     # Parámetros de los indicadores
-    sma_period = 200        # 0 - 200 Periodo de la media movil simple
+    sma_period = 100        # 0 - 200 Periodo de la media movil simple
     macd_fast = 10          # 0 - 12 Periodo rápido del MACD
     macd_slow = 20          # 0 - 26 Periodo lento del MACD
     macd_signal = 10        # 0 - 10 Periodo de la señal del MACD
@@ -290,7 +287,7 @@ class Short_SMA_MAC_DBB(Strategy):
     macd_crossed = None
 
     # Parámetros de los indicadores
-    sma_period = 200        # 0 - 200 Periodo de la media movil simple
+    sma_period = 100        # 0 - 200 Periodo de la media movil simple
     macd_fast = 10          # 0 - 12 Periodo rápido del MACD
     macd_slow = 20          # 0 - 26 Periodo lento del MACD
     macd_signal = 10        # 0 - 10 Periodo de la señal del MACD
@@ -434,11 +431,11 @@ class Short_SMA_MAC_DBB(Strategy):
 
 """ ===== Ejecución del BACKTESTING ===== """
 
-#data = pd.read_csv("data_velas/BingX/DOGE-USDT/BingX_DOGE-USDT_1m_2025-05-09_velas.csv",
-#                    parse_dates=['Time'], index_col='Time')
+data = pd.read_csv("data_velas/BingX/NEAR-USDT/1m/BingX_NEAR-USDT_1m_2025-05-17_velas.csv",
+                    parse_dates=['Time'], index_col='Time')
 #print("Los datos son:\n", data)
 
-"""
+#"""
 # Backtest del largo
 bt_long = Backtest(data, Long_SMA_MACD_BB, cash = 1000)
 stats_long = bt_long.run()
@@ -454,4 +451,4 @@ print(stats_short)
 data_short_trades = stats_short['_trades']
 print(data_short_trades)
 #bt_short.plot()(filename='grafico_short.html')
-"""
+#"""
