@@ -3,6 +3,7 @@
 # ===== IMPORTS =====
 import pprint
 import os
+import time
 import datetime as dt
 import numpy as np
 import pandas as pd
@@ -33,14 +34,73 @@ entradas = {
                 "temporalidad": "1m"
                 }
 
-bingx = BingX.BingX(entradas)
+#bingx = BingX.BingX(entradas)
 
 # Función para obtener y guardar velas en CSV desde un exchange
-def get_velas_df(exchange, symbol, temporalidad, cantidad):
+def get_velas_df(exchange: str, symbol: str, temporalidad: list, cantidad: list):
+
+    diccionario = {"exchange": exchange,
+                    "symbol": symbol,
+                    "temporalidad": temporalidad,
+                    "cantidad": cantidad}
+
+    def conv_pdataframe(velas: list):
+        df = pd.DataFrame(velas)
+        df.rename(columns={
+            'open': 'Open',
+            'high': 'High',
+            'low': 'Low',
+            'close': 'Close',
+            'volume': 'Volume',
+            'time': 'Time'
+        }, inplace=True)
+
+        df[['Open', 'High', 'Low', 'Close', 'Volume']] = df[['Open', 'High', 'Low', 'Close', 'Volume']].astype(float)
+        df['Time'] = pd.to_datetime(df['Time'], unit='ms')
+        df.set_index('Time', inplace=True)
+        df.sort_index(inplace=True)
+
+        #print(f"Nuevas velas descargadas: {len(df)}")
+        #print(df)
+
+        base_dir = "data_velas"
+        ruta = os.path.join(base_dir, exchange, symbol, temporalidad)
+        os.makedirs(ruta, exist_ok=True)
+
+        fecha = dt.datetime.now().strftime('%Y-%m-%d')
+        nombre_archivo = f"{exchange}_{symbol}_{temporalidad}_{fecha}_velas.csv"
+        archivo_completo = os.path.join(ruta, nombre_archivo)
+
+        if os.path.exists(archivo_completo):
+            df_existente = pd.read_csv(archivo_completo, parse_dates=['Time'], index_col='Time')
+            total_antes = len(df_existente)
+            df_total = pd.concat([df_existente, df])
+            df_total = df_total[~df_total.index.duplicated(keep='last')]
+            df_total.sort_index(inplace=True)
+            total_despues = len(df_total)
+            nuevas_agregadas = total_despues - total_antes
+            df_total.to_csv(archivo_completo)
+            print(f"Archivo actualizado: {archivo_completo}")
+            print(f"→ Velas nuevas agregadas: {nuevas_agregadas}")
+            print(f"→ Total de velas en archivo: {total_despues}")
+        else:
+            df.to_csv(archivo_completo)
+            print(f"Archivo nuevo guardado: {archivo_completo}")
+            print(f"→ Velas guardadas: {len(df)}\n")
+
+        if not velas or not isinstance(velas, list):
+            print("No se recibieron velas.")
+            return
+
     # Selección de exchange.
     if exchange == "BingX":
-        velas = bingx.get_last_candles(symbol, temporalidad, cantidad)
-        velas.pop(0) # Para eliminar el 1er elemento que contiene el simbolo y la temporalidad
+        bingx = BingX.BingX(entradas)
+        symbol = str(symbol).upper() + "-USDT"
+        for temp, cant in zip(temporalidad, cantidad):
+            velas = bingx.get_last_candles(symbol, temp, cant)
+            velas.pop(0) # Para eliminar el 1er elemento que contiene el simbolo y la temporalidad
+            conv_pdataframe(velas)
+            time.sleep(1)
 
     elif exchange == "Binance":
         pass
@@ -51,63 +111,14 @@ def get_velas_df(exchange, symbol, temporalidad, cantidad):
     elif exchange == "Phemex":
         pass
 
-    if not velas or not isinstance(velas, list):
-        print("No se recibieron velas.")
-        return
-
-    df = pd.DataFrame(velas)
-    df.rename(columns={
-        'open': 'Open',
-        'high': 'High',
-        'low': 'Low',
-        'close': 'Close',
-        'volume': 'Volume',
-        'time': 'Time'
-    }, inplace=True)
-
-    df[['Open', 'High', 'Low', 'Close', 'Volume']] = df[['Open', 'High', 'Low', 'Close', 'Volume']].astype(float)
-    df['Time'] = pd.to_datetime(df['Time'], unit='ms')
-    df.set_index('Time', inplace=True)
-    df.sort_index(inplace=True)
-
-    #print(f"Nuevas velas descargadas: {len(df)}")
-    #print(df)
-
-    base_dir = "data_velas"
-    ruta = os.path.join(base_dir, exchange, symbol)
-    os.makedirs(ruta, exist_ok=True)
-
-    fecha = dt.datetime.now().strftime('%Y-%m-%d')
-    nombre_archivo = f"{exchange}_{symbol}_{temporalidad}_{fecha}_velas.csv"
-    archivo_completo = os.path.join(ruta, nombre_archivo)
-
-    if os.path.exists(archivo_completo):
-        df_existente = pd.read_csv(archivo_completo, parse_dates=['Time'], index_col='Time')
-        total_antes = len(df_existente)
-        df_total = pd.concat([df_existente, df])
-        df_total = df_total[~df_total.index.duplicated(keep='last')]
-        df_total.sort_index(inplace=True)
-        total_despues = len(df_total)
-        nuevas_agregadas = total_despues - total_antes
-        df_total.to_csv(archivo_completo)
-        print(f"Archivo actualizado: {archivo_completo}")
-        print(f"→ Velas nuevas agregadas: {nuevas_agregadas}")
-        print(f"→ Total de velas en archivo: {total_despues}")
-    else:
-        df.to_csv(archivo_completo)
-        print(f"Archivo nuevo guardado: {archivo_completo}")
-        print(f"→ Velas guardadas: {len(df)}\n")
-
+""" Datos para la Obtención de velas """
 exchange = "BingX"
-symbol = "SUI-USDT"
-temporalidad = "1m"
-cantidad = 1440
+symbol = "near"
+temporalidad = ["1m", "3m", "5m"]
+cantidad = [1440, 480, 280]
 
-#get_velas_df(exchange, symbol, temporalidad, cantidad)
+get_velas_df(exchange, symbol, temporalidad, cantidad)
 
-data = pd.read_csv("data_velas/BingX/DOGE-USDT/BingX_DOGE-USDT_1m_2025-05-09_velas.csv",
-                    parse_dates=['Time'], index_col='Time')
-#print("Los datos son:\n", data)
 
 """ CLASES DE ESTRATEGIA PARA BACKTESTING """
 
@@ -420,7 +431,14 @@ class Short_SMA_MAC_DBB(Strategy):
             if cant_mon > 0: # aquí se debe comprobar si el tamaño es mayor al minimo permitido por el exchange
                 self.sell(size = cant_mon, sl = stop_price, tp = take_profit, market = entry_price)
 
-#"""
+
+""" ===== Ejecución del BACKTESTING ===== """
+
+#data = pd.read_csv("data_velas/BingX/DOGE-USDT/BingX_DOGE-USDT_1m_2025-05-09_velas.csv",
+#                    parse_dates=['Time'], index_col='Time')
+#print("Los datos son:\n", data)
+
+"""
 # Backtest del largo
 bt_long = Backtest(data, Long_SMA_MACD_BB, cash = 1000)
 stats_long = bt_long.run()
@@ -428,7 +446,7 @@ print(stats_long)
 data_long_trades = stats_long['_trades']
 print(data_long_trades)
 #bt_long.plot()(filename='grafico_long.html')
-#"""
+#""
 # Backtest del corto
 bt_short = Backtest(data, Short_SMA_MAC_DBB, cash = 1000)
 stats_short = bt_short.run()
@@ -436,4 +454,4 @@ print(stats_short)
 data_short_trades = stats_short['_trades']
 print(data_short_trades)
 #bt_short.plot()(filename='grafico_short.html')
-#"""
+"""
