@@ -144,7 +144,7 @@ class Long_SMA_MACD_BB(Strategy):
 
     # Parámetros de gestión de riesgo
     pip_moneda = 1
-    pip_precio = 0.00001
+    pip_precio = 0.0001
     dist_min = 0.5         # % 0 - 1 Distancia mínima entre el precio de entrada y el stop loss
     sep_min = 25           # % de 0 - 100 ampliación de dist entre min_price y precio de entrada
     ratio = 2              # Take profit = riesgo * 2 ej: beneficio/riesgo 2:1
@@ -299,7 +299,7 @@ class Short_SMA_MAC_DBB(Strategy):
 
     # Parámetros de gestión de riesgo
     pip_moneda = 1
-    pip_precio = 0.00001
+    pip_precio = 0.0001
     dist_min = 0.5         # % 0 - 1 Distancia mínima entre el precio de entrada y el stop loss
     sep_min = 25           # % de 0 - 100 ampliación de dist entre min_price y precio de entrada
     ratio = 2              # Take profit = riesgo * 2 ej: beneficio/riesgo 2:1
@@ -431,7 +431,7 @@ class Short_SMA_MAC_DBB(Strategy):
 
 """ ===== Ejecución del BACKTESTING ===== """
 
-data = pd.read_csv("data_velas/BingX/NEAR-USDT/1m/BingX_NEAR-USDT_1m_2025-05-17_velas.csv",
+data = pd.read_csv("data_velas/BingX/XRP-USDT/BingX_XRP-USDT_1m_2025-05-09_velas.csv",
                     parse_dates=['Time'], index_col='Time')
 #print("Los datos son:\n", data)
 
