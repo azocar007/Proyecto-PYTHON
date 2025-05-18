@@ -431,21 +431,23 @@ class Short_SMA_MAC_DBB(Strategy):
 
 """ ===== Ejecución del BACKTESTING ===== """
 
-data = pd.read_csv("data_velas/BingX/XRP-USDT/BingX_XRP-USDT_1m_2025-05-09_velas.csv",
+data = pd.read_csv("data_velas/BingX/NEAR-USDT/1m/BingX_NEAR-USDT_1m_2025-05-17_velas.csv",
                     parse_dates=['Time'], index_col='Time')
 #print("Los datos son:\n", data)
 
 #"""
-# Backtest del largo
+# Backtest del LONG
 bt_long = Backtest(data, Long_SMA_MACD_BB, cash = 1000)
+print("\n===== Gestion LONG =====")
 stats_long = bt_long.run()
 print(stats_long)
 data_long_trades = stats_long['_trades']
 print(data_long_trades)
 #bt_long.plot()(filename='grafico_long.html')
 #""
-# Backtest del corto
+# Backtest del SHORT
 bt_short = Backtest(data, Short_SMA_MAC_DBB, cash = 1000)
+print("\n===== Gestion SHORT =====")
 stats_short = bt_short.run()
 print(stats_short)
 data_short_trades = stats_short['_trades']
