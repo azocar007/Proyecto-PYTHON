@@ -108,11 +108,40 @@ def get_velas_df(exchange: str, symbol: str, temporalidad: list, cantidad: list)
         pass
 
 
+def exportar_trades(bt, stats, nombre_base="trades_completo", carpeta="resultados"):
+    try:
+        # Crear carpeta si no existe
+        os.makedirs(carpeta, exist_ok=True)
+
+        # Fecha y hora para identificar cada ejecución
+        timestamp = dt.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+
+        # Construir nombre final del archivo con timestamp
+        nombre_archivo = f"{nombre_base}_{timestamp}.csv"
+        ruta_final = os.path.join(carpeta, nombre_archivo)
+
+        # Obtener los DataFrames
+        df_trades = stats['_trades'].copy()
+        df_debug = pd.DataFrame(stats._strategy.logs_trades)
+
+        # Fusionar si hay índices comunes
+        if 'EntryBar' in df_trades.columns and 'bar_index' in df_debug.columns:
+            df_merged = pd.merge(df_trades, df_debug, left_on='EntryBar', right_on='bar_index', how='left')
+        else:
+            df_merged = pd.concat([df_trades, df_debug], axis=1)
+
+        # Exportar
+        df_merged.to_csv(ruta_final, index=False)
+        print(f"[OK] Exportado como: {ruta_final} ({len(df_merged)} trades)")
+    except Exception as e:
+        print(f"\n[ERROR] No se pudo exportar: {e}\n")
+
+
 """ Datos para la Obtención de velas """
 exchange = "BingX"
 symbol = "near"
 temporalidad = ["1m", "3m", "5m"]
-cantidad = [1440, 480, 280]
+cantidad = [1440, 680, 580]
 
 #get_velas_df(exchange, symbol, temporalidad, cantidad)
 
@@ -129,7 +158,13 @@ class Long_SMA_MACD_BB(Strategy):
     bb_hband_mayor = None
     bb_middle_mayor = None
     bb_lband_mayor = None
-    macd_crossed = None
+
+    # Flags de lógica
+    macd_crossed = False
+    ventana_restante = 0
+
+    # Logs para debug de trades
+    logs_trades = []
 
     # Parámetros de los indicadores
     sma_period = 100        # 0 - 200 Periodo de la media movil simple
@@ -148,7 +183,6 @@ class Long_SMA_MACD_BB(Strategy):
     dist_min = 0.5         # % 0 - 1 Distancia mínima entre el precio de entrada y el stop loss
     sep_min = 25           # % de 0 - 100 ampliación de dist entre min_price y precio de entrada
     ratio = 2              # Take profit = riesgo * 2 ej: beneficio/riesgo 2:1
-    macd_valid_window = 20 # duración del cruce MACD como señal válida
     riesgo_pct = 0.001      # % del capital por operación, 0.001 EQUIVALE A 1 USD PARA UN CAPITAL DE 1000 USD
 
     def init(self):
@@ -193,8 +227,8 @@ class Long_SMA_MACD_BB(Strategy):
         self.macd_crossed = 0
 
     def next(self):
-        # Valida que existan mas de 20 velas para evitar errores
-        if len(self.data) < 20:
+        # Esperar hasta la vela correspondiente al inicio de la SMA
+        if self.i < self.sma_period:
             return
 
         # Valida que no existan posiciones abiertas
@@ -205,29 +239,29 @@ class Long_SMA_MACD_BB(Strategy):
         if self.bb_lband_mayor[-1] < self.sma[-1] < self.bb_hband_mayor[-1]:
             return
 
-        """ Activar señal MACD si corresponde """
-        # Si el MACD cruza la señal y el precio está por encima de la media móvil:
-        if self.data.Close[-1] > self.sma[-1] and crossover(self.macd, self.macd_signal):
+        """ Paso 1: cruce MACD, Activar señal MACD si corresponde """
 
-        # Si el MACD cruza y se mantiene por encima de la señal y el precio está por debajo de la media móvil:
-        #if self.data.Close[-1] > self.sma[-1] and self.macd[-1] > self.macd_signal[-1]:
+        if not self.macd_crossed:
 
-            self.macd_crossed = self.macd_valid_window
+            # Si el MACD cruza la señal y el precio está por encima de la media móvil:
+            if self.data.Close[-1] > self.sma[-1] and crossover(self.macd, self.macd_signal):
 
-        if self.macd_crossed > 0:
-            self.macd_crossed -= 1
-        else:
-            return
+            # Si el MACD cruza y se mantiene por encima de la señal y el precio está por debajo de la media móvil:
+            #if self.data.Close[-1] > self.sma[-1] and self.macd[-1] > self.macd_signal[-1]:
+
+                self.macd_crossed = True
+                self.ventana_restante = self.bb_period
+                return
 
         """ Confirmar toque de la banda """
         # variables para el cruce de la banda superior
-        min_price = min(self.data.Low[-20:])
+        min_price = min(self.data.Low[-(self.bb_period):])
         high = self.data.High[-1]
         low = self.data.Low[-1]
 
         if high >= self.bb_hband[-1]:
             # Buscar entry_price con incremento desde el cierre anterior
-            precios_hist = pd.Series(self.data.Close[-19:].tolist())  # 19 previas
+            precios_hist = pd.Series(self.data.Close[-(self.bb_period):].tolist())  # 19 previas
             precio = low
             tope = high
             entry_price = None
@@ -349,7 +383,7 @@ class Short_SMA_MAC_DBB(Strategy):
 
     def next(self):
         # Valida que existan mas de 20 velas para evitar errores
-        if len(self.data) < 20:
+        if len(self.data) < 20: #self.sma_period:
             return
 
         # Valida que no existan posiciones abiertas
@@ -376,13 +410,13 @@ class Short_SMA_MAC_DBB(Strategy):
 
         """ Confirmar toque de la banda """
         # variables para el cruce de la banda inferior
-        max_price = max(self.data.High[-20:])
+        max_price = max(self.data.High[-(self.bb_period):])
         high = self.data.High[-1]
         low = self.data.Low[-1]
 
         if low <= self.bb_lband[-1]:
             # Buscar entry_price con incremento desde el cierre anterior
-            precios_hist = pd.Series(self.data.Close[-19:].tolist())  # 19 previas
+            precios_hist = pd.Series(self.data.Close[-(self.bb_period):].tolist())  # 19 previas
             precio = high
             tope = low
             entry_price = None
@@ -431,20 +465,20 @@ class Short_SMA_MAC_DBB(Strategy):
 
 """ ===== Ejecución del BACKTESTING ===== """
 
-data = pd.read_csv("data_velas/BingX/NEAR-USDT/1m/BingX_NEAR-USDT_1m_2025-05-17_velas.csv",
+data = pd.read_csv("data_velas/BingX/NEAR-USDT/1m/BingX_NEAR-USDT_1m_2025-05-18_velas.csv",
                     parse_dates=['Time'], index_col='Time')
-#print("Los datos son:\n", data)
 
 #"""
 # Backtest del LONG
 bt_long = Backtest(data, Long_SMA_MACD_BB, cash = 1000)
 print("\n===== Gestion LONG =====")
 stats_long = bt_long.run()
-print(stats_long)
+#print(stats_long)
 data_long_trades = stats_long['_trades']
 print(data_long_trades)
 #bt_long.plot()(filename='grafico_long.html')
-#""
+exportar_trades(bt_long, stats_long, nombre_base="trades_long", carpeta="resultados")
+"""
 # Backtest del SHORT
 bt_short = Backtest(data, Short_SMA_MAC_DBB, cash = 1000)
 print("\n===== Gestion SHORT =====")
