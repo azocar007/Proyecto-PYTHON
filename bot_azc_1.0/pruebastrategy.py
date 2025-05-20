@@ -85,8 +85,13 @@ class Long_SMA_MACD_BB(Strategy):
 
                 while precio <= tope:
                     serie = pd.concat([precios_hist, pd.Series([precio])], ignore_index=True)
-                    bb = ta.volatility.BollingerBands(serie, window=self.bb_period, window_dev=self.bb_std_dev)
+                    bb = ta.volatility.BollingerBands(
+                        serie,
+                        window=self.bb_period, 
+                        window_dev=self.bb_std_dev
+                        )
                     bb_val = bb.bollinger_hband().iloc[-1]
+
                     if bb_val >= precio:
                         entry_price = precio
                         break

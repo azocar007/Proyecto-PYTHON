@@ -228,7 +228,7 @@ class Long_SMA_MACD_BB(Strategy):
 
     def next(self):
         # Esperar hasta la vela correspondiente al inicio de la SMA
-        if self.i < self.sma_period:
+        if len(self.data.Close) < self.sma_period:
             return
 
         # Valida que no existan posiciones abiertas
@@ -244,68 +244,85 @@ class Long_SMA_MACD_BB(Strategy):
         if not self.macd_crossed:
 
             # Si el MACD cruza la señal y el precio está por encima de la media móvil:
-            if self.data.Close[-1] > self.sma[-1] and crossover(self.macd, self.macd_signal):
+            #if self.data.Close[-1] > self.sma[-1] and crossover(self.macd, self.macd_signal):
 
             # Si el MACD cruza y se mantiene por encima de la señal y el precio está por debajo de la media móvil:
-            #if self.data.Close[-1] > self.sma[-1] and self.macd[-1] > self.macd_signal[-1]:
+            if self.data.Close[-1] > self.sma[-1] and self.macd[-1] > self.macd_signal[-1]:
 
                 self.macd_crossed = True
                 self.ventana_restante = self.bb_period
                 return
 
-        """ Confirmar toque de la banda """
-        # variables para el cruce de la banda superior
-        min_price = min(self.data.Low[-(self.bb_period):])
-        high = self.data.High[-1]
-        low = self.data.Low[-1]
+        """ Paso 2: Confirmar toque de la banda """
+        if self.macd_crossed:
+            self.ventana_restante -= 1
+            if self.data.High[-1] >= self.bb_hband[-1]:
+                min_price = min(self.data.Low[-self.bb_period:])
+                precios_hist = pd.Series(self.data.Close[-(self.bb_period - 1):].tolist())
+                precio = self.data.Low[-1]
+                tope = self.data.High[-1]
+                entry_price = None
 
-        if high >= self.bb_hband[-1]:
-            # Buscar entry_price con incremento desde el cierre anterior
-            precios_hist = pd.Series(self.data.Close[-(self.bb_period):].tolist())  # 19 previas
-            precio = low
-            tope = high
-            entry_price = None
+                """ Bucle de fuerza bruta para conseguir el precio igual o inmediatamente superior al de la banda de bollinger """
+                while precio <= tope:
 
-            """ Bucle de fuerza bruta para conseguir el precio igual o inmediatamente superior al de la banda de bollinger """
-            while precio <= tope:
+                    # Calcular banda de Bollinger superior para el precio iterado
+                    serie = pd.concat([precios_hist, pd.Series([precio])], ignore_index=True)
+                    bb = ta.volatility.BollingerBands(
+                        serie,
+                        window = self.bb_period,
+                        window_dev = self.bb_std_dev
+                        )
+                    bb_val = bb.bollinger_hband().iloc[-1]
 
-                # Calcular banda de Bollinger superior para el precio iterado
-                serie = pd.concat([precios_hist, pd.Series([precio])], ignore_index=True)
-                bb = ta.volatility.BollingerBands(
-                    serie,
-                    window = self.bb_period,
-                    window_dev = self.bb_std_dev
-                    )
-                bb_val = bb.bollinger_hband().iloc[-1]
+                    # Comprobación del precio iterado para cerra el bucle
+                    if bb_val >= precio:
+                        entry_price = mgo.redondeo(precio, self.pip_precio)
+                        break
 
-                # Comprobación del precio iterado para cerra el bucle
-                if bb_val >= precio:
-                    entry_price = mgo.redondeo(precio, self.pip_precio)
-                    break
+                    # Si no se cumple, incrementar el precio iterado
+                    precio += self.pip_precio
 
-                # Si no se cumple, incrementar el precio iterado
-                precio += self.pip_precio
+                if entry_price is None:
+                    self.macd_crossed = False
+                    return  # No se encontró cruce válido
 
-            if entry_price is None:
-                return  # No se encontró cruce válido
+                """ Validar estructura (distancia al mínimo) """
+                if (abs(entry_price - min_price) / entry_price * 100) < self.dist_min:
+                    self.macd_crossed = False
+                    return
 
-            """ Validar estructura (distancia al mínimo) """
-            if (abs(entry_price - min_price) / entry_price * 100) < (self.dist_min / 100):
-                return
+                # Calcular SL, TP, tamaño
+                stop_price = entry_price - (abs(min_price - entry_price) * (1 + self.sep_min / 100))
+                risk = abs(entry_price - stop_price)
+                take_profit = entry_price + risk * self.ratio
+                riesgo_usd = self.equity * self.riesgo_pct
+                cant_mon = riesgo_usd / risk
 
-            # Calcular SL, TP, tamaño
-            stop_price = entry_price - (abs(min_price - entry_price) * (1 + self.sep_min / 100))
-            risk = abs(entry_price - stop_price)
-            take_profit = entry_price + risk * self.ratio
-            riesgo_usd = self.equity * self.riesgo_pct
-            cant_mon = riesgo_usd / risk
+                cant_mon = mgo.redondeo(cant_mon, self.pip_moneda)
+                stop_price = mgo.redondeo(stop_price, self.pip_precio)
+                take_profit = mgo.redondeo(take_profit, self.pip_precio)
 
-            cant_mon = mgo.redondeo(cant_mon, self.pip_moneda)
-            stop_price = mgo.redondeo(stop_price, self.pip_precio)
-            take_profit = mgo.redondeo(take_profit, self.pip_precio)
+                if cant_mon > 0: # aquí se debe comprobar si el tamaño es mayor al minimo permitido por el exchange
+                    self.logs_trades.append({
+                            'bar_index': len(self.data.Close),
+                            'entry_price': entry_price,
+                            'sma': self.sma[-1],
+                            'macd': self.macd[-1],
+                            'macd_signal': self.macd_signal[-1],
+                            'bb_upper': self.bb_hband[-1],
+                            'bb_upper_mayor': self.bb_hband_mayor[-1],
+                            'low_ult_20': min_price,
+                            'stop': stop_price,
+                            'tp': take_profit,
+                            'size': cant_mon
+                        })
+                    self.buy(size = cant_mon, sl = stop_price, tp = take_profit, market = entry_price)
 
-            if cant_mon > 0: # aquí se debe comprobar si el tamaño es mayor al minimo permitido por el exchange
-                self.buy(size = cant_mon, sl = stop_price, tp = take_profit, market = entry_price)
+                self.macd_crossed = False
+
+            elif self.ventana_restante <= 0:
+                self.macd_crossed = False
 
 
 class Short_SMA_MAC_DBB(Strategy):
@@ -473,11 +490,11 @@ data = pd.read_csv("data_velas/BingX/NEAR-USDT/1m/BingX_NEAR-USDT_1m_2025-05-18_
 bt_long = Backtest(data, Long_SMA_MACD_BB, cash = 1000)
 print("\n===== Gestion LONG =====")
 stats_long = bt_long.run()
-#print(stats_long)
+print(stats_long)
 data_long_trades = stats_long['_trades']
 print(data_long_trades)
 #bt_long.plot()(filename='grafico_long.html')
-exportar_trades(bt_long, stats_long, nombre_base="trades_long", carpeta="resultados")
+#exportar_trades(bt_long, stats_long, nombre_base="trades_long", carpeta="resultados")
 """
 # Backtest del SHORT
 bt_short = Backtest(data, Short_SMA_MAC_DBB, cash = 1000)
