@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import Modos_de_gestion_operativa as mgo
 import tecnical_analisys as tap
+from strategy_1 import exportar_trades
 from backtesting_custom import Backtest, Strategy
 from backtesting_custom.lib import crossover
 
@@ -61,6 +62,7 @@ class Long_SMA_MACD_BB(Strategy):
         if self.position:
             return
 
+        # Calcular indicadores
         close_series = pd.Series(self.data.Close[:])
         high_series = pd.Series(self.data.High[:])
         low_series = pd.Series(self.data.Low[:])
@@ -75,12 +77,26 @@ class Long_SMA_MACD_BB(Strategy):
         macd_sig_val = macd_signal_line.iloc[-1]
         bb_up_val = bb_upper.iloc[-1]
 
-        if self.data.Close[-1] > sma_val and crossover(macd_line, macd_signal_line):
-            min_price = min(self.data.Low[-self.bb_period:])
-            tope = self.data.High[-1]
-            precio = self.data.Low[-1]  # se inicia desde el valor más bajo de la vela actual
-            entry_price = None
-            precios_hist = close_series.iloc[-(self.bb_period - 1):].tolist()
+        """ Paso 1: cruce MACD, Activar señal MACD si corresponde """
+        if not self.macd_crossed:
+            # Si el MACD cruza la señal y el precio está por encima de la media móvil:
+            #if self.data.Close[-1] > sma_val and crossover(macd_line, macd_signal_line):
+
+            # Si el MACD cruza y se mantiene por encima de la señal y el precio está por debajo de la media móvil:
+            if self.data.Close[-1] > sma_val and macd_val > macd_val:
+                self.macd_crossed = True
+                self.ventana_restante = self.bb_period
+            else:
+                return
+
+        """ Paso 2: Confirmar toque de la banda """
+        if self.macd_crossed:
+            self.ventana_restante -= 1
+        min_price = min(self.data.Low[-self.bb_period:])
+        tope = self.data.High[-1]
+        precio = self.data.Low[-1]  # se inicia desde el valor más bajo de la vela actual
+        entry_price = None
+        precios_hist = close_series.iloc[-(self.bb_period - 1):].tolist()
 
             while precio <= tope:
                 serie = pd.Series(precios_hist + [precio])
@@ -90,12 +106,12 @@ class Long_SMA_MACD_BB(Strategy):
                     break
                 precio += self.pip_precio
 
-            if entry_price is None:
-                return
+                if entry_price is None:
+                    return
 
-            dist_pct = abs(entry_price - min_price) / entry_price * 100
-            if dist_pct < self.dist_min:
-                return
+                dist_pct = abs(entry_price - min_price) / entry_price * 100
+                if dist_pct < self.dist_min:
+                    return
 
             stop = entry_price - abs(entry_price - min_price) * (1 + self.sep_min / 100)
             risk = abs(entry_price - stop)
@@ -123,18 +139,22 @@ class Long_SMA_MACD_BB(Strategy):
                 self.buy(size=size, sl=stop, tp=tp, market=entry_price)
 
 
-""" ===== Ejecución del BACKTESTING ===== """
+# Ejemplo de uso
+if __name__ == "__main__":
 
-data = pd.read_csv("data_velas/BingX/NEAR-USDT/1m/BingX_NEAR-USDT_1m_2025-05-18_velas.csv",
-                    parse_dates=['Time'], index_col='Time')
+    """ ===== Ejecución del BACKTESTING ===== """
 
-#"""
-# Backtest del LONG
-bt_long = Backtest(data, Long_SMA_MACD_BB, cash = 1000)
-print("\n===== Gestion LONG =====")
-stats_long = bt_long.run()
-print(stats_long)
-data_long_trades = stats_long['_trades']
-print(data_long_trades)
-#bt_long.plot()(filename='grafico_long.html')
-#"""
+    data = pd.read_csv("data_velas/BingX/NEAR-USDT/1m/BingX_NEAR-USDT_1m_2025-05-18_velas.csv",
+                        parse_dates=['Time'], index_col='Time')
+
+    #"""
+    # Backtest del LONG
+    bt_long = Backtest(data, Long_SMA_MACD_BB, cash = 1000)
+    print("\n===== Gestion LONG =====")
+    stats_long = bt_long.run()
+    print(stats_long)
+    data_long_trades = stats_long['_trades']
+    print(data_long_trades)
+    exportar_trades(bt_long, stats_long, nombre_base="trades_long", carpeta="resultados")
+    #bt_long.plot()(filename='grafico_long.html')
+    #"""

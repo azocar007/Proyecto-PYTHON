@@ -132,7 +132,7 @@ def exportar_trades(bt, stats, nombre_base="trades_completo", carpeta="resultado
 
         # Exportar
         df_merged.to_csv(ruta_final, index=False)
-        print(f"[OK] Exportado como: {ruta_final} ({len(df_merged)} trades)")
+        print(f"\n[OK] Exportado como: {ruta_final} ({len(df_merged)} trades)\n")
     except Exception as e:
         print(f"\n[ERROR] No se pudo exportar: {e}\n")
 
@@ -480,28 +480,31 @@ class Short_SMA_MAC_DBB(Strategy):
                 self.sell(size = cant_mon, sl = stop_price, tp = take_profit, market = entry_price)
 
 
-""" ===== Ejecución del BACKTESTING ===== """
+# Ejemplo de uso
+if __name__ == "__main__":
 
-data = pd.read_csv("data_velas/BingX/NEAR-USDT/1m/BingX_NEAR-USDT_1m_2025-05-18_velas.csv",
-                    parse_dates=['Time'], index_col='Time')
+    """ ===== Ejecución del BACKTESTING ===== """
 
-#"""
-# Backtest del LONG
-bt_long = Backtest(data, Long_SMA_MACD_BB, cash = 1000)
-print("\n===== Gestion LONG =====")
-stats_long = bt_long.run()
-print(stats_long)
-data_long_trades = stats_long['_trades']
-print(data_long_trades)
-#bt_long.plot()(filename='grafico_long.html')
-#exportar_trades(bt_long, stats_long, nombre_base="trades_long", carpeta="resultados")
-"""
-# Backtest del SHORT
-bt_short = Backtest(data, Short_SMA_MAC_DBB, cash = 1000)
-print("\n===== Gestion SHORT =====")
-stats_short = bt_short.run()
-print(stats_short)
-data_short_trades = stats_short['_trades']
-print(data_short_trades)
-#bt_short.plot()(filename='grafico_short.html')
-#"""
+    data = pd.read_csv("data_velas/BingX/NEAR-USDT/1m/BingX_NEAR-USDT_1m_2025-05-18_velas.csv",
+                        parse_dates=['Time'], index_col='Time')
+
+    #"""
+    # Backtest del LONG
+    bt_long = Backtest(data, Long_SMA_MACD_BB, cash = 1000)
+    print("\n===== Gestion LONG =====")
+    stats_long = bt_long.run()
+    print(stats_long)
+    data_long_trades = stats_long['_trades']
+    print(data_long_trades)
+    #bt_long.plot()(filename='grafico_long.html')
+    #exportar_trades(bt_long, stats_long, nombre_base="trades_long", carpeta="resultados")
+    """
+    # Backtest del SHORT
+    bt_short = Backtest(data, Short_SMA_MAC_DBB, cash = 1000)
+    print("\n===== Gestion SHORT =====")
+    stats_short = bt_short.run()
+    print(stats_short)
+    data_short_trades = stats_short['_trades']
+    print(data_short_trades)
+    #bt_short.plot()(filename='grafico_short.html')
+    #"""
