@@ -28,7 +28,7 @@ class Long_SMA_MACD_BB(Strategy):
 
     # Flags de lógica
     macd_crossed = False
-    ventana_restante = 0
+    ventana = 0
 
     # Logs para debug de trades
     logs_trades = []
@@ -85,17 +85,17 @@ class Long_SMA_MACD_BB(Strategy):
             # Si el MACD cruza y se mantiene por encima de la señal y el precio está por debajo de la media móvil:
             if self.data.Close[-1] > sma_val and macd_val > macd_sig_val:
                 self.macd_crossed = True
-                self.ventana_restante = self.bb_period
+                self.ventana = 0
             else:
                 return
 
         """ Paso 2: Confirmar toque de la banda """
         if self.macd_crossed:
-            if self.data.High[-1] > bb_up_val and self.ventana_restante > 0:
+            if self.data.High[-1] > bb_up_val and self.ventana > 0:
                 min_price = min(self.data.Low[-self.bb_period:])
                 tope = self.data.High[-1]
                 precio = mgo.redondeo(self.data.Low[-1], self.pip_precio)  # se inicia desde el valor más bajo de la vela actual
-                entry_price = None
+                entry_price = None # self.data.Close[-1]
                 precios_hist = close_series.iloc[-(self.bb_period - 1):].tolist()
 
                 """ Bucle de fuerza bruta para conseguir el precio igual o inmediatamente superior al de la banda de bollinger """
@@ -113,11 +113,16 @@ class Long_SMA_MACD_BB(Strategy):
                     # Si no se cumple, incrementar el precio iterado
                     precio += self.pip_precio
 
+                if entry_price is None:
+                    self.macd_crossed = False
+                    self.ventana = 0
+                    return
+
                 """ Validar estructura (distancia al mínimo) """
                 dist_pct = abs(entry_price - min_price) / entry_price * 100
                 if dist_pct < self.dist_min:
                     self.macd_crossed = False
-                    self.ventana_restante = self.bb_period # Validar si se necesita
+                    self.ventana = 0
                     return
 
                 # Calcular SL, TP, tamaño
@@ -141,22 +146,32 @@ class Long_SMA_MACD_BB(Strategy):
                         'bb_upper': bb_up_val,
                         'stop': stop,
                         'tp': tp,
-                        'size': size
+                        'size': size,
+                        'time': self.data.index[-1],
+                        'ventana': self.ventana,
+                        'macd_crossed': self.macd_crossed
                     })
                     self.buy(size=size, sl=stop, tp=tp, market=entry_price)
 
             else:
                 # Si no se cumple el toque de la banda, se reduce la ventana
-                self.ventana_restante -= 1
-        else:
+                self.ventana += 1
+                if self.ventana >= self.bb_period:
+                        self.macd_crossed = False
+                        self.ventana = 0
+
+        #else:
+        #    self.macd_crossed = False
+        #    self.ventana = 0
+
+        def on_trade_exit(self, trade):
             self.macd_crossed = False
+            self.ventana = 0
 
-
-
-# Ejemplo de uso
-if __name__ == "__main__":
 
     """ ===== Ejecución del BACKTESTING ===== """
+
+if __name__ == "__main__":
 
     data = pd.read_csv("data_velas/BingX/NEAR-USDT/1m/BingX_NEAR-USDT_1m_2025-05-18_velas.csv",
                         parse_dates=['Time'], index_col='Time')
@@ -164,11 +179,11 @@ if __name__ == "__main__":
     #"""
     # Backtest del LONG
     bt_long = Backtest(data, Long_SMA_MACD_BB, cash = 1000)
-    print("\n===== Gestion LONG =====")
+    print("\n\n ============== Gestion LONG ============== ")
     stats_long = bt_long.run()
     print(stats_long)
     data_long_trades = stats_long['_trades']
     print(data_long_trades)
-    #exportar_trades(bt_long, stats_long, nombre_base="trades_long", carpeta="resultados")
+    #exportar_trades(bt_long, stats_long, nombre_base="NEAR_LONG", carpeta="resultados")
     #bt_long.plot()(filename='grafico_long.html')
     #"""
