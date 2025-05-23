@@ -139,14 +139,10 @@ class Long_SMA_MACD_BB(Strategy):
                 if size > 0:
                     self.logs_trades.append({
                         'bar_index': len(self.data.Close),
-                        'entry_price': entry_price,
                         'macd': macd_val,
                         'macd_signal': macd_sig_val,
                         'sma': sma_val,
                         'bb_upper': bb_up_val,
-                        'stop': stop,
-                        'tp': tp,
-                        'size': size,
                         'time': self.data.index[-1],
                         'ventana': self.ventana,
                         'macd_crossed': self.macd_crossed
