@@ -83,7 +83,7 @@ class Long_SMA_MACD_BB(Strategy):
             #if self.data.Close[-1] > sma_val and crossover(macd_line, macd_signal_line):
 
             # Si el MACD cruza y se mantiene por encima de la señal y el precio está por debajo de la media móvil:
-            if self.data.Close[-1] > sma_val and macd_val > macd_val:
+            if self.data.Close[-1] > sma_val and macd_val > macd_sig_val:
                 self.macd_crossed = True
                 self.ventana_restante = self.bb_period
             else:
@@ -91,8 +91,7 @@ class Long_SMA_MACD_BB(Strategy):
 
         """ Paso 2: Confirmar toque de la banda """
         if self.macd_crossed:
-            self.ventana_restante -= 1
-            if self.data.High[-1] > bb_up_val:
+            if self.data.High[-1] > bb_up_val and self.ventana_restante > 0:
                 min_price = min(self.data.Low[-self.bb_period:])
                 tope = self.data.High[-1]
                 precio = mgo.redondeo(self.data.Low[-1], self.pip_precio)  # se inicia desde el valor más bajo de la vela actual
@@ -114,21 +113,17 @@ class Long_SMA_MACD_BB(Strategy):
                     # Si no se cumple, incrementar el precio iterado
                     precio += self.pip_precio
 
+                """ Validar estructura (distancia al mínimo) """
                 dist_pct = abs(entry_price - min_price) / entry_price * 100
                 if dist_pct < self.dist_min:
                     self.macd_crossed = False
                     self.ventana_restante = self.bb_period # Validar si se necesita
                     return
 
-                """ No parece necesario, pero se deja por el momento """
-                if entry_price is None and self.ventana_restante >= 0:
-                    return
-
-
+                # Calcular SL, TP, tamaño
                 stop = entry_price - abs(entry_price - min_price) * (1 + self.sep_min / 100)
                 risk = abs(entry_price - stop)
                 tp = entry_price + risk * self.ratio
-
                 riesgo_usd = self.equity * self.riesgo_pct
                 size = riesgo_usd / risk
 
@@ -150,10 +145,11 @@ class Long_SMA_MACD_BB(Strategy):
                     })
                     self.buy(size=size, sl=stop, tp=tp, market=entry_price)
 
-                self.macd_crossed = False
-
-            elif self.ventana_restante <= 0:
-                self.macd_crossed = False
+            else:
+                # Si no se cumple el toque de la banda, se reduce la ventana
+                self.ventana_restante -= 1
+        else:
+            self.macd_crossed = False
 
 
 
@@ -173,6 +169,6 @@ if __name__ == "__main__":
     print(stats_long)
     data_long_trades = stats_long['_trades']
     print(data_long_trades)
-    exportar_trades(bt_long, stats_long, nombre_base="trades_long", carpeta="resultados")
+    #exportar_trades(bt_long, stats_long, nombre_base="trades_long", carpeta="resultados")
     #bt_long.plot()(filename='grafico_long.html')
     #"""
