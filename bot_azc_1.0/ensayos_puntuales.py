@@ -60,6 +60,8 @@ class Long_SMA_MACD_BB(Strategy):
             return
 
         if self.position:
+            self.macd_crossed = False
+            self.ventana = 0
             return
 
         # Calcular indicadores
@@ -139,10 +141,10 @@ class Long_SMA_MACD_BB(Strategy):
                 if size > 0:
                     self.logs_trades.append({
                         'bar_index': len(self.data.Close),
-                        'macd': macd_val,
-                        'macd_signal': macd_sig_val,
-                        'sma': sma_val,
-                        'bb_upper': bb_up_val,
+                        'macd': mgo.redondeo(macd_val, self.pip_precio),
+                        'macd_signal': mgo.redondeo(macd_sig_val, self.pip_precio),
+                        'sma': mgo.redondeo(sma_val, self.pip_precio),
+                        'bb_upper': mgo.redondeo(bb_up_val, self.pip_precio),
                         'time': self.data.index[-1],
                         'ventana': self.ventana,
                         'macd_crossed': self.macd_crossed
@@ -156,13 +158,14 @@ class Long_SMA_MACD_BB(Strategy):
                         self.macd_crossed = False
                         self.ventana = 0
 
-        #else:
-        #    self.macd_crossed = False
-        #    self.ventana = 0
-
-        def on_trade_exit(self, trade):
+        else:
             self.macd_crossed = False
             self.ventana = 0
+            return
+
+    def on_trade_exit(self, trade):
+        self.macd_crossed = False
+        self.ventana = 0
 
 
     """ ===== Ejecución del BACKTESTING ===== """
@@ -180,6 +183,6 @@ if __name__ == "__main__":
     print(stats_long)
     data_long_trades = stats_long['_trades']
     print(data_long_trades)
-    #exportar_trades(bt_long, stats_long, nombre_base="NEAR_LONG", carpeta="resultados")
+    #exportar_trades(bt_long, stats_long, nombre_base="NEAR_LONG_1m", carpeta="resultados")
     #bt_long.plot()(filename='grafico_long.html')
     #"""
