@@ -20,7 +20,7 @@ PosShort = mgo.PosicionShort()
 # Definiendo la clase BingX
 class BingX:
 
-    # Iniciando variables del diccionario de entrada
+    """ Iniciando variables del diccionario de entrada """
     # Inicializa la API con las credenciales y el tipo de trading.
     def __init__(self, dict: dict):
         self.api_key = "eQIiQ5BK4BGJJNgAce6QPN3iZRtjVUuo5NgVP2lnbe5xgywXr0pjP3x1tWaFnqVmavHXLRjFYOlg502XxkcKw"
@@ -38,13 +38,11 @@ class BingX:
         self.position_opened_by_strategy = False  # Flag para control de entrada
         self._detener_monitor = threading.Event()
 
-
         """ Variables de calculo predefinidas para el metodo check_strategy()"""
         self.last_price = None
         self.precio_sl = None
         self.entrada_long = None
         self.entrada_short = None
-
 
         """ Variables de entrada """
         self.dict = dict
@@ -1053,7 +1051,7 @@ class BingX:
 if __name__ == "__main__":
 
     entradas = {
-                "symbol": "sui",
+                "symbol": "doge",
                 "positionside": "LONG",
                 "modo_gestion": "REENTRADAS",
                 "monto_sl": 1.0,
@@ -1076,9 +1074,9 @@ if __name__ == "__main__":
     """ Solicitar información de la cuenta y monedas """
     #print("Balance de la cuenta:", bingx.get_balance()["availableMargin"]) # Margen disponible para operar
     #pprint.pprint({"Activo": symbol, "Información" : bingx.inf_moneda(symbol)})
-    print("Pip del precio:", bingx.pip_precio())
+    #print("Pip del precio:", bingx.pip_precio())
     #print("Cantidad de decimales del precio:", bingx.cant_deci_precio(symbol))
-    print("Monto mínimo moneda (pip de moneda):", bingx.pip_moneda())
+    #print("Monto mínimo moneda (pip de moneda):", bingx.pip_moneda())
     #print("Monto mínimo USDT:", bingx.min_usdt(symbol))
     #bingx.max_apalancamiento(symbol)
 
