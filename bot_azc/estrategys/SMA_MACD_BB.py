@@ -32,8 +32,8 @@ class SMA_MACD_BB_Long:
         self.last_price = last_price
 
         # Mostrar el DataFrame con indicadores al inicializar la clase
-        print("\n📊 DataFrame con indicadores calculados:")
-        print(self.df[["Close", "sma", "bb1_lower", "bb2_upper", "macd_line", "macd_signal"]].tail(10).to_string(index=True))
+        #print("\n📊 DataFrame con indicadores calculados:")
+        #print(self.df[["Close", "sma", "bb1_lower", "bb2_upper", "macd_line", "macd_signal"]].tail(10).to_string(index=True))
 
     def _calcular_indicadores(self):
         close = self.df['Close']
