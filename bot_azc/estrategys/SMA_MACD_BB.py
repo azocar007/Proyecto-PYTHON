@@ -8,15 +8,20 @@ class SMA_MACD_BB_Long:
         self,
         df: pd.DataFrame,
         last_price: float = None,
-        # Variables de configuración:
+        # Parametros SMA
         sma_window: int = 100,
+        # Parametros para Bandas de Bollinger
         bb1_window: int = 20,
         bb1_dev: float = 2.0,
         bb2_window: int = 20,
-        bb2_dev: float = 1,
+        bb2_dev: float = 1.0,
+        # Parametros para MACD
         macd_fast: int = 10,
         macd_slow: int = 20,
-        macd_signal: int = 10
+        macd_signal: int = 10,
+        # Parámetros para gestion de riesgo
+        dist_min: float = 0.5,         # % 0 - 1 Distancia mínima entre el precio de entrada y el stop loss
+        sep_min: int = 25            # % de 0 - 100 ampliación de dist entre min_price y precio de entrada
     ):
         self.df = df.copy().reset_index(drop=True)
         self.sma_window = sma_window
@@ -27,13 +32,15 @@ class SMA_MACD_BB_Long:
         self.macd_fast = macd_fast
         self.macd_slow = macd_slow
         self.macd_signal = macd_signal
+        self.dist_min = dist_min
+        self.sep_min = sep_min
 
         self._calcular_indicadores()
         self.last_price = last_price
 
         # Mostrar el DataFrame con indicadores al inicializar la clase
-        #print("\n📊 DataFrame con indicadores calculados:")
-        #print(self.df[["Close", "sma", "bb1_lower", "bb2_upper", "macd_line", "macd_signal"]].tail(10).to_string(index=True))
+        print("\n📊 DataFrame con indicadores calculados:")
+        print(self.df[["Close", "sma", "bb1_lower", "bb2_upper", "macd_line", "macd_signal"]].tail(10).to_string(index=True))
 
     def _calcular_indicadores(self):
         close = self.df['Close']
@@ -83,7 +90,13 @@ class SMA_MACD_BB_Long:
                 print(f"🔍 last_price={last_price} vs nueva BB superior={nueva_bb2_superior}")
 
                 if last_price > nueva_bb2_superior:
-                    stop_loss = df['Low'][i - bb2:i].min()
+                    min_price = df['Low'][i - bb2:i].min()
+                    dist_pct = abs((last_price - min_price) / min_price) * 100
+
+                if dist_pct < self.dist_min:
+                    continue
+                else:
+                    stop_loss = last_price - abs(last_price - min_price) * (1 + self.sep_min / 100)
                     print("✅ Señal 3: Ruptura dinámica confirmada con precio actual")
                     return {
                         "precio_entrada": last_price,
