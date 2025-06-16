@@ -24,6 +24,7 @@ class SMA_MACD_BB_Long:
         sep_min: int = 25            # % de 0 - 100 ampliación de dist entre min_price y precio de entrada
     ):
         self.df = df.copy().reset_index(drop=True)
+        self.df2 = df.copy()
         self.sma_window = sma_window
         self.bb1_window = bb1_window
         self.bb1_dev = bb1_dev
@@ -35,27 +36,29 @@ class SMA_MACD_BB_Long:
         self.dist_min = dist_min
         self.sep_min = sep_min
 
-        self._calcular_indicadores()
+        self._calcular_indicadores(self.df)
+        self._calcular_indicadores(self.df2)
         self.last_price = last_price
 
         # Mostrar el DataFrame con indicadores al inicializar la clase
-        print("\n📊 DataFrame con indicadores calculados:")
-        print(self.df[["Close", "sma", "bb1_lower", "bb2_upper", "macd_line", "macd_signal"]].tail(10).to_string(index=True))
+        #print("\n📊 DataFrame dinamico con indicadores calculados:")
+        #print(self.df[["Close", "sma", "bb1_lower", "bb2_upper", "macd_line", "macd_signal"]].tail(5).to_string(index=True))
+        #print(self.df2[["Close", "sma", "bb1_lower", "bb2_upper", "macd_line", "macd_signal"]].tail(5).to_string(index=True))
 
-    def _calcular_indicadores(self):
-        close = self.df['Close']
+    def _calcular_indicadores(self, df: pd.DataFrame = None):
+        close = df['Close']
 
-        self.df['sma'] = SMAIndicator(close, window=self.sma_window).sma_indicator()
+        df['sma'] = SMAIndicator(close, window=self.sma_window).sma_indicator()
 
         bb1 = BollingerBands(close, window=self.bb1_window, window_dev=self.bb1_dev)
-        self.df['bb1_lower'] = bb1.bollinger_lband()
+        df['bb1_lower'] = bb1.bollinger_lband()
 
         bb2 = BollingerBands(close, window=self.bb2_window, window_dev=self.bb2_dev)
-        self.df['bb2_upper'] = bb2.bollinger_hband()
+        df['bb2_upper'] = bb2.bollinger_hband()
 
         macd = MACD(close, window_slow=self.macd_slow, window_fast=self.macd_fast, window_sign=self.macd_signal)
-        self.df['macd_line'] = macd.macd()
-        self.df['macd_signal'] = macd.macd_signal()
+        df['macd_line'] = macd.macd()
+        df['macd_signal'] = macd.macd_signal()
 
     def evaluar_entrada(self):
         df = self.df
@@ -67,20 +70,23 @@ class SMA_MACD_BB_Long:
         for i in range(max(bb1, bb2, self.sma_window), n - 1):
             
             # Validación de estructura - BB inferior > SMA
-            if df['bb1_lower'][i - 1] <= df['sma'][i - 1]:
+            if not df['bb1_lower'][i - 1] >= df['sma'][i - 1]:
+                #return
                 continue
-            print("✅ Señal 1: BB inferior está por encima de SMA")
+            #print("✅ Señal 1: BB inferior está por encima de SMA")
 
             # Validación de cruce MACD
             if not (df['macd_line'][i - 1] < df['macd_signal'][i - 1] and df['macd_line'][i] > df['macd_signal'][i]):
+                #return
                 continue
-            print("✅ Señal 2: Cruce MACD detectado")
+            print("✅✅ Señal 2: Cruce MACD detectado")
 
             # Validación de ruptura por encima de la BB superior usando last_price
             indice_actual = len(df) - 1
             if i < indice_actual <= i + bb1:
                 df_temp = df.copy()
-                df_temp = df_temp.append(df_temp.iloc[-1], ignore_index=True)
+                #df_temp = df_temp.append(df_temp.iloc[-1], ignore_index=True)
+                df_temp = pd.concat([df_temp, df_temp.iloc[[-1]]], ignore_index=True)
                 df_temp.at[len(df_temp) - 1, 'Close'] = last_price
 
                 close_temp = df_temp['Close']
@@ -97,7 +103,7 @@ class SMA_MACD_BB_Long:
                     continue
                 else:
                     stop_loss = last_price - abs(last_price - min_price) * (1 + self.sep_min / 100)
-                    print("✅ Señal 3: Ruptura dinámica confirmada con precio actual")
+                    print("✅✅✅ Señal 3: Ruptura dinámica confirmada con precio actual")
                     return {
                         "precio_entrada": last_price,
                         "stop_loss": stop_loss,

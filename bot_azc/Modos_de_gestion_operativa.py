@@ -3,8 +3,9 @@ import pprint
 import datetime as dt
 import numpy as np
 import pandas as pd
+import threading
+import calendar, time
 from decimal import Decimal, ROUND_DOWN, ROUND_FLOOR
-import pandas as pd
 
 # Funciones anidades a la funciones LONG, SHORT y SNOW BALL para la gestión de volumen
 def gest_porcen_reentradas(monedas, porcentaje_vol):
@@ -38,29 +39,45 @@ def redondeo(valor: float, pip_valor: str) -> float:
 
 # Convierte una lista de velas a un DataFrame de pandas
 def conv_pdataframe(velas: list) -> pd.DataFrame:
+    if not velas:
+        raise ValueError("❌ La lista de velas está vacía.")
 
-    # Eliminar el primer elemento si no es una vela (no contiene 'open')
-    if velas and 'open' not in velas[0]:
+    key_maps = [
+        {'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume', 'time': 'Time'},
+        {'o': 'Open', 'h': 'High', 'l': 'Low', 'c': 'Close', 'v': 'Volume', 'T': 'Time'},
+    ]
+    
+    key_sets = [set(m.keys()) for m in key_maps]
+
+    # Eliminar encabezados o dicts inválidos
+    while velas and (
+        not isinstance(velas[0], dict)
+        or not any(key_set.issubset(set(velas[0].keys())) for key_set in key_sets)
+    ):
         velas = velas[1:]
 
-    # Validación opcional: asegurar que el resto sí son velas válidas
-    if not all(all(k in v for k in ("open", "high", "low", "close", "volume", "time")) for v in velas):
-        raise ValueError("⚠️ La lista contiene elementos inválidos que no son velas.")
+    if not velas:
+        raise ValueError("❌ No hay datos válidos tipo vela en la lista.")
+
+    selected_map = None
+    for key_map in key_maps:
+        if all(k in velas[0] for k in key_map.keys()):
+            selected_map = key_map
+            break
+
+    if not selected_map:
+        raise ValueError(f"⚠️ No se reconoce el formato de las velas. Claves encontradas: {list(velas[0].keys())}")
+
+    if not all(all(k in v for k in selected_map.keys()) for v in velas):
+        raise ValueError("⚠️ La lista contiene elementos inconsistentes con el formato detectado.")
 
     df = pd.DataFrame(velas)
-    df.rename(columns={
-        'open': 'Open',
-        'high': 'High',
-        'low': 'Low',
-        'close': 'Close',
-        'volume': 'Volume',
-        'time': 'Time'
-    }, inplace=True)
-
+    df.rename(columns=selected_map, inplace=True)
     df[['Open', 'High', 'Low', 'Close', 'Volume']] = df[['Open', 'High', 'Low', 'Close', 'Volume']].astype(float)
     df['Time'] = pd.to_datetime(df['Time'], unit='ms')
     df.set_index('Time', inplace=True)
     df.sort_index(inplace=True)
+
     return df
 
 # Metodo para convertir el argumento de la temporalidad a segundos
@@ -70,6 +87,44 @@ def temporalidad_a_segundos(temporalidad: str = None) -> int:
     unidad = temporalidad[-1]
     return valor * unidades.get(unidad, 60)
 
+# mantiene self.df siempre actualizado
+def df_dynamic_start(bot):
+
+    def sync_loop():
+        print("🧠 Hilo de actualización de actualización de DataFrame dinamico")
+        while True:
+            seconds = temporalidad_a_segundos(bot.temporalidad)
+            now = time.time()
+            if bot.df is None or (now - bot.last_df_update > seconds):
+                raw = bot.get_last_candles(bot.symbol, bot.temporalidad, bot.cant_candles)
+                #pprint.pprint(raw)
+                bot.df = conv_pdataframe(raw)
+                t = bot.df.index[-1].to_pydatetime()
+                bot.last_df_update = calendar.timegm(t.utctimetuple())
+                print(f"\n✅ Última vela cerrada (UTC): {t}")
+                print(f"🕓 Epoch actual UTC: {dt.datetime.fromtimestamp(now)} | Última actualización Local: {dt.datetime.fromtimestamp(bot.last_df_update)}")
+
+            time.sleep(1)
+
+    #if not hasattr(bot, "df_thread") or not bot.df_thread.is_alive():
+    if not isinstance(getattr(bot, "df_thread", None), threading.Thread) or not bot.df_thread.is_alive():
+        bot.df_thread = threading.Thread(target=sync_loop)
+        bot.df_thread.daemon = True
+        bot.df_thread.start()
+
+# te da el df actualizado al instante
+def df_dynamic_pull(bot):
+
+    seconds = temporalidad_a_segundos(bot.temporalidad)
+    now = time.time()
+
+    if bot.df is None or (now - bot.last_df_update > seconds):
+        raw = bot.get_last_candles(bot.symbol, bot.temporalidad, bot.cant_candles)
+        bot.df = conv_pdataframe(raw)
+        t = bot.df.index[-1].to_pydatetime()
+        bot.last_df_update = calendar.timegm(t.utctimetuple())
+
+    return bot.df
 
 
 """ CLASES PARA GESTION DE RIESGO POR DIRECCION DE MERCADO"""

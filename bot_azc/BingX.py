@@ -1,6 +1,8 @@
 ### Modulo BingX ###
 
 import pprint
+import traceback
+import pandas as pd
 import os
 import time
 import threading
@@ -12,7 +14,6 @@ import io
 import psutil
 import websocket
 import requests
-import traceback
 import Modos_de_gestion_operativa as mgo
 from typing import Callable, Optional
 
@@ -43,8 +44,10 @@ class BingX:
         self.last_price = None
         self.precio_sl = None
         self.estrategia = estrategia
-        self.df = None
-        self.last_df_update = 0
+        # 📊 DataFrame y control de actualización
+        self.df: pd.DataFrame = None      # Contendrá las velas convertidas a DataFrame dinamico
+        self.last_df_update = 0           # Timestamp (epoch UTC) de la última actualización
+        self.df_thread = None             # Referencia al hilo de actualización de df_dynamic
 
         """ Variables de entrada """
         self.dict = dict
@@ -62,7 +65,7 @@ class BingX:
         self.porcentaje_vol_ree = int(self.dict["porcentaje_vol_ree"]) if "porcentaje_vol_ree" in self.dict else 0
         self.monedas = float(self.dict["monedas"])
         self.usdt = float(self.dict["usdt"])
-        self.segundos_monitoreo = int(self.dict["segundos"]) if "segundos" in self.dict else 5
+        self.segundos_monitoreo = int(self.dict["segundos"]) if "segundos" in self.dict else 10
         self.temporalidad = str(self.dict["temporalidad"]) if "temporalidad" in self.dict else "1m"
         self.cant_candles = int(self.dict["cant_velas"]) if "cant_velas" in self.dict else 1
 
@@ -473,6 +476,7 @@ class BingX:
         modo_gestion = self.modo_gestion
         seg = self.segundos_monitoreo
         interval = self.temporalidad
+        mgo.df_dynamic_start(self)
 
         MAX_REQUESTS_PER_MINUTE = 60
         request_count = 0
@@ -492,7 +496,9 @@ class BingX:
             try:
                 # Obtener información del activo
                 ult_vela = self.get_last_candles(symbol, interval)
-                print(f"📈 Datos última vela:\n{ult_vela}")
+                #print(f"📈 Datos última vela:\n{ult_vela}")
+                vela = mgo.conv_pdataframe(ult_vela)
+                print(f"📊 Datos del DataFrame:\n{vela.tail(1).to_string(index=True)}")
 
                 # Comprobar si hay posiciones abiertas
                 positions = self.get_open_position()
@@ -522,7 +528,7 @@ class BingX:
 
                 request_count += 1
             except Exception as e:
-                print(f"❌ Error obteniendo posiciones: {e}\n")
+                print(f"❌ Monitor - Error obteniendo posiciones: {e}\n")
                 #traceback.print_exc()
 
             time.sleep(seg)  # Intervalo de segundos para no saturar la API
@@ -665,8 +671,18 @@ class BingX:
 
                 if "data" in data:
                     self.last_price = float(data["data"][0]["c"])
-                    print(f"Información vela: {data["dataType"]}: {data["data"]}")
-                    print(f"💰 Ultimo Precio cotizado: {self.last_price}")
+                    df_data = mgo.conv_pdataframe(data["data"])
+                    #print(f"\nInformación vela: {data["dataType"]}:\n{data["data"]}")
+                    print(f"\nSymbol: {symbol}, Temporalidad: {interval} Información de vela:")
+                    print(f"{df_data}")
+                    print(f"💰 Ultimo Precio cotizado: {self.last_price}⌛ Esperando señal para abrir posición con WebSocket...\n")
+                    """ Ejemplo:
+                    Información vela: MON-USDT@kline_temporaidad:
+                    websocket= [{'c': '2.9983', 'o': '2.9963', 'h': '2.9999', 'l': '2.9963', 'v': '45268', 'T': 1750033320000}]
+                    HTTP= [{'close': '3.0276', 'high': '3.0276', 'low': '3.0221', 'open': '3.0230', 'time': 1750028760000, 'volume': '5195.00'}]
+                    """
+                    # Inicia el hilo de actualización automática del DataFrame (si no está ya corriendo)
+                    #print(f"📊 Datos del DataFrame Dinamico:\n{self.df.tail(1).to_string(index=True)}")
                     self.check_strategy(self.last_price) # Ejecuta la estrategia en tiempo real
 
                     if self.position_opened_by_strategy:
@@ -674,7 +690,7 @@ class BingX:
                         ws.close()  # Cerrar WebSocket para volver al monitoreo de la posición
 
             except Exception as e:
-                print(f"❌ Error procesando mensaje: {e}")
+                print(f"❌ Websocket - Error procesando mensaje: {e}")
                 #traceback.print_exc()
 
         def on_error(ws, error):
@@ -705,24 +721,10 @@ class BingX:
 
     # Estrategia de entrada al mercado
     def check_strategy(self, last_price: float):
+
         positionside = self.positionside
-        seconds = mgo.temporalidad_a_segundos(self.temporalidad)
-        now = time.time()
-
-        if now - self.last_df_update > seconds or self.df is None:
-            print("🔁 Actualizando velas del DataFrame...")
-            raw = self.get_last_candles(self.symbol, self.temporalidad, self.cant_candles)
-            #print(f"📊 Datos de velas sin DataFrame:\n{raw}")
-            self.df = mgo.conv_pdataframe(raw)
-            #print(f"📊 Datos del DataFrame:\n{self.df}")
-            print(f"🕒 Última vela cerrada: {self.df.index[-1]}")
-
-            ultimo_tiempo = self.df.index[-1].to_pydatetime()
-            sincronizado = time.mktime(ultimo_tiempo.timetuple())
-            self.last_df_update = sincronizado
-            print(f"🕒 Última vela cerrada: {ultimo_tiempo} (sincronizado)")
-        
-        estrategia = self.estrategia(self.df, last_price)
+        df_dynamic = self.df.iloc[:-1]
+        estrategia = self.estrategia(df_dynamic, last_price)
         resultado = estrategia.evaluar_entrada()
 
         if positionside == "LONG":
@@ -1087,9 +1089,9 @@ if __name__ == "__main__":
                 "porcentaje_vol_ree": 0,
                 "monedas": 40,
                 "usdt": 0,
-                "segundos": 5,
+                "segundos": 10,
                 "temporalidad": "1m",
-                "cant_velas": 100
+                "cant_velas": 200
                 }
 
     bingx = BingX(estrategia, entradas)
