@@ -683,11 +683,33 @@ class BingX:
                     """
                     # Inicia el hilo de actualización automática del DataFrame (si no está ya corriendo)
                     #print(f"📊 Datos del DataFrame Dinamico:\n{self.df.tail(1).to_string(index=True)}")
-                    self.check_strategy(self.last_price) # Ejecuta la estrategia en tiempo real
+                    self.check_strategy_loop() # Ejecuta la estrategia en tiempo real
+                    resultado = estrategia.evaluar_entrada()
+                    if resultado.get("estrategia_valida"):
+                        self.set_limit_market_order(
+                            self.symbol, self.positionside, self.modo_gestion, resultado
+                        )
+                        print("🚀 Entrada ejecutada desde estrategia loop")
+                        positions = self.get_open_position()
+                        if positionside == "LONG":
+                            long_amt = float(positions["LONG"].get("positionAmt", 0))
+                            if long_amt > 0:
+                                self.position_opened_by_strategy = True
+                                print("✅ Posición abierta. Cambiando a monitoreo.")
+                                ws.close()  # Cerrar WebSocket para volver al monitoreo de la posición                                
+                                return
+                        elif positionside == "SHORT":
+                            short_amt = float(positions["SHORT"].get("positionAmt", 0))
+                            if short_amt > 0:
+                                self.position_opened_by_strategy = True
+                                print("✅ Posición abierta. Cambiando a monitoreo.")
+                                ws.close()  # Cerrar WebSocket para volver al monitoreo de la posición
+                                return
 
                     if self.position_opened_by_strategy:
                         print("✅ Posición abierta. Cambiando a monitoreo.")
                         ws.close()  # Cerrar WebSocket para volver al monitoreo de la posición
+                        return
 
             except Exception as e:
                 print(f"❌ Websocket - Error procesando mensaje: {e}")
