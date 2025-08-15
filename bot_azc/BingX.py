@@ -706,11 +706,6 @@ class BingX:
                                 ws.close()  # Cerrar WebSocket para volver al monitoreo de la posición
                                 return
 
-                    if self.position_opened_by_strategy:
-                        print("✅ Posición abierta. Cambiando a monitoreo.")
-                        ws.close()  # Cerrar WebSocket para volver al monitoreo de la posición
-                        return
-
             except Exception as e:
                 print(f"❌ Websocket - Error procesando mensaje: {e}")
                 #traceback.print_exc()
